@@ -1,0 +1,17 @@
+[data]
+floppyless = "1"
+msdosinitiated = "1"
+; Needed for second stage
+OriSrc = "\\Attila\RemInst\windows\i386"
+OriTyp = "4"
+LocalSourceOnCD = 1
+DisableAdminAccountOnDomainJoin = 1
+
+[SetupData]
+OsLoadOptions = "/fastdetect"
+; Needed for first stage
+SetupSourceDevice = "\Device\LanmanRedirector\Attila\RemInst\windows"
+
+[UserData]
+ComputerName = *
+ProductID=XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
