@@ -1,0 +1,7 @@
+*.pyc
+*.pyo
+*.tgz
+*~
+*.flc
+*.tar.gz
+*.log
