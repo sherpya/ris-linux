@@ -22,7 +22,7 @@ from sys import exit
 from time import sleep, time
 from cPickle import load
 
-_version_ = '0.2'
+_version_ = '0.3'
 
 WELCOME='/mnt/disk/ris/OSChooser/Italian/welcome.osc'
 BASEPATH='/mnt/disk/ris/OSChooser/Italian/'
@@ -331,7 +331,7 @@ def send_ncr(s, addr, vid, pid, subsys):
     #subsys = 0x100010B7
     
     device = 'PCI\\VEN_%04X&DEV_%04X' % (vid, pid)
-    device_sub = device + '&SUB_%08X' % subsys
+    device_sub = device + '&SUBSYS_%08X' % subsys
 
     dev = None
     try:

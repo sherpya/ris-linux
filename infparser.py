@@ -20,7 +20,7 @@ from sys import argv
 from glob import glob
 from cPickle import dump
 
-__version__ = '0.3'
+__version__ = '0.4'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -72,17 +72,17 @@ def inf_needed(filename, section):
         c_value = section[key][0].lower()
         if c_key=='classguid':
             if c_value not in class_guids:
-                if debug > 0: print 'Skipping', filename, 'driver not in class guid list'
+                if debug > 1: print 'Skipping', filename, 'driver not in class guid list'
                 return False
             else:
                 return True
         elif c_key=='class':
             if c_value not in classes:
-                if debug > 0: print 'Skipping', filename, 'driver not in class list'
+                if debug > 1: print 'Skipping', filename, 'driver not in class list'
                 return False
             else:
                 return True
-    if debug > 0: print 'Skipping',filename,'none of class or class guid found'
+    if debug > 1: print 'Skipping',filename,'none of class or class guid found'
     return False
     
 def parse_line(sections, name, lineno, line):
@@ -102,9 +102,19 @@ def parse_line(sections, name, lineno, line):
         section = sections[name]
         key, value = line.split('=', 1)
         key = key.strip()
+
+        ### SkipList
+        if key == '0': return True
+                
         if section.has_key(key):
-            if debug > 1: print '[%d] [%s] Duplicate key %s' % (lineno, name, key)
-            return True
+            values = csv2list(value)
+            ### SkipList
+            if (len(values) < 2) or (value.find('VEN_') == -1) or (value.find('DEV_') == -1):
+                return True
+            oldkey = key
+            key = key + '_dev_' + values[1]
+
+            if debug > 0: print '[%d] [%s] Duplicate key %s, it will be renamed to %s' % (lineno, name, oldkey, key)
 
         if name == 'manufacturer':
             section[key] = [value.split(',', 1)[0].strip()]
@@ -194,7 +204,8 @@ def scan_inf(filename):
         for devmap in devlist:
             devmap = unquote(devmap.lower())
             for dev in inf[devmap].keys():
-                desc = unquote(str_lookup(inf['strings'], dev[1:-1]))
+                device = dev.split('%')[1]
+                desc = unquote(str_lookup(inf['strings'], device))
                 sec, hid = inf[devmap][dev]
                 sec = sec.lower()
 
