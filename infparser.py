@@ -121,7 +121,11 @@ def parse_line(sections, name, lineno, line):
             if debug > 0: print '[%d] [%s] Duplicate key %s, it will be renamed to %s' % (lineno, name, oldkey, key)
 
         if name == 'manufacturer':
-            section[key] = [value.split(',', 1)[0].strip()]
+            mf = value.split(',', 1)[0].strip()
+            mf = mf.replace('"', '')
+            if mf.lower().endswith('.ntx86'): ## also .nt?
+                mf = mf[:-6]
+            section[key] = [mf]
             if debug > 1: print 'Manifacturer %s=%s' % (key, section[key])
             return True
 
