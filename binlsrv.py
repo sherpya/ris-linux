@@ -23,7 +23,7 @@ from time import sleep, time
 from cPickle import load
 from os import chdir
 
-_version_ = '0.4'
+_version_ = '0.5'
 
 #############
 
@@ -117,7 +117,11 @@ UNR       = S+'UNR'
 fqdn = getfqdn()
 hostinfo = fqdn.split('.', 1)
 domain = hostinfo.pop()
-hostname = hostinfo.pop()
+# workaround if hosts files is broken
+try:
+    hostname = hostinfo.pop()
+except:
+    hostname = domain
     
 server_data = {
     'domain': domain.upper(),
