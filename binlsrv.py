@@ -18,14 +18,20 @@
 from socket import socket, AF_INET, SOCK_DGRAM, getfqdn
 from codecs import utf_16_le_decode, utf_16_le_encode, ascii_encode
 from struct import unpack, pack
-from sys import exit
+from sys import argv, exit
 from time import sleep, time
 from cPickle import load
+from os import chdir
 
 _version_ = '0.4'
 
-WELCOME='/mnt/disk/ris/OSChooser/Italian/welcome.osc'
-BASEPATH='/mnt/disk/ris/OSChooser/Italian/'
+#############
+
+WELCOME  ='/mnt/disk/ris/OSChooser/English/welcome.osc'
+BASEPATH ='/mnt/disk/ris/OSChooser/English/'
+LOGFILE  = '/var/log/binlsrv.log'
+
+#############
 
 NTLM_NEGOTIATE    = 1
 NTLM_CHALLENGE    = 2
@@ -139,6 +145,17 @@ AUTH_U1   = 'N\x11\x155F\r\xa6\xeb' # Challenge
 AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
 
 NTLM      = 'NTLMSSP\x00'
+
+### Logger class wrapper (Sorin Sbarnea <sorin@intersol>)
+class Log:
+    """file like for writes with auto flush after each write
+    to ensure that everything is logged, even during an
+    unexpected exit."""
+    def __init__(self, f):
+        self.f = f
+    def write(self, s):
+        self.f.write(s)
+        self.f.flush()
 
 def utf2ascii(text):
     #return text.decode('utf-16-le', 'ignore').encode('ascii', 'ignore')
@@ -479,7 +496,7 @@ def send_ncq(s, vid, pid, subsys, spath):
     rev     = 0x0
     rev2    = 0x0
     #subsys  = 0x0
-    #spath  = '\\\\ZUFOLZ\RemInst\\Setup\\Italian\\IMAGES\\WINDOWS'
+    #spath  = '\\\\Attila\RemInst\\Setup\\Italian\\IMAGES\\WINDOWS'
     
     data = pack('<I', 0x2)                # u1
     data = data + pack('<I', 0x0)         # u2
@@ -616,16 +633,42 @@ def send_unr(s, addr):
     s.sendto(reply, addr)
     
 if __name__ == '__main__':
-    devlist = load(open('devlist.cache'))
-    print 'Succesfully loaded %d devices' % len(devlist)
+    ### Daemon Mode
+    ### Unix only
+    if len(argv) > 1 and (argv[1] == '--daemon' or argv[1] == '-d'):
+        try:
+            from os import fork
+            from posix import close
+        except:
+            print 'Daemon mode is not supported on this platform (missing fork() syscall or posix module)'
+            exit(-1)
 
-    #send_ncr(None, None, 0x1022, 0x2000, 0x0)
-    #exit()
-    
+        import sys
+
+        if (fork()): exit()
+        
+        close(sys.stdin.fileno())
+        sys.stdin  = open('/dev/null')
+        
+        close(sys.stdout.fileno())
+        sys.stdout = Log(open(LOGFILE, 'a+'))
+        
+        close(sys.stderr.fileno())
+        sys.stderr = Log(open(LOGFILE, 'a+'))
+        
+
+    try:
+        devlist = load(open('devlist.cache'))
+    except:
+        print 'Could not load devlist.cache, build it with infparser.py'
+        exit(-1)
+        
+    print 'Succesfully loaded %d devices' % len(devlist)
+    chdir('/')
+
     s = socket(AF_INET, SOCK_DGRAM)
     s.bind(('', 4011))
-    #s.bind(('', 1968))
-
+    
     print 'Binlserver started...'
     while 1:
         addr, t, data = get_packet(s)
