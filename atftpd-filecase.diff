@@ -1,0 +1,28 @@
+Patches aftpd to convert windows paths into unix paths
+
+--- tftpd.c.orig	2004-07-17 01:42:21.000000000 +0200
++++ tftpd.c	2004-07-17 01:49:00.000000000 +0200
+@@ -655,6 +655,15 @@
+           switch (retval)
+           {
+           case GET_RRQ:
++	       {
++	       /* Windows client hack */
++	       char *seek = (char*) &(data->tftp_options[OPT_FILENAME].value);
++	       if (*seek == '\\')
++	       while (*seek)
++	       {
++	           if (*seek == '\\') *seek = '/';
++		      seek++;
++	       }
+                logger(LOG_NOTICE, "Serving %s to %s:%d",
+                       data->tftp_options[OPT_FILENAME].value,
+                       inet_ntoa(data->client_info->client.sin_addr),
+@@ -665,6 +674,7 @@
+                     stats_send_locked();
+                else
+                     stats_err_locked();
++	       }
+                break;
+           case GET_WRQ:
+                logger(LOG_NOTICE, "Fetching from %s to %s",

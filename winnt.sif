@@ -1,0 +1,6 @@
+[SetupData]
+OsLoadOptions = "/fastdetect /minint"
+SetupSourceDevice = "\Device\LanmanRedirector\Attila\RemInst\winpe"
+
+[UserData]
+ComputerName = WindowsPE
