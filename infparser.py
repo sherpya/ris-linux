@@ -20,7 +20,7 @@ from sys import argv
 from glob import glob
 from cPickle import dump
 
-__version__ = '0.5'
+__version__ = '0.6'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -147,7 +147,7 @@ def fixup(name):
 
     check = name.split('.')
 
-    while check[-1].isdigit():
+    while check[-1].isdigit() and len(check)>1:
         check = check[:-1]
     
     if check[-1].startswith('nt'):
@@ -161,6 +161,7 @@ def parse_inf(filename):
     lineno = 0
     name = ''
     sections = {}
+    section = None
     data = open(filename).read()
     
     ## Cheap Unicode to ascii
@@ -210,7 +211,8 @@ def scan_inf(filename):
             for dev in inf[devmap].keys():
                 device = dev.split('%')[1]
                 desc = unquote(str_lookup(inf['strings'], device))
-                sec, hid = inf[devmap][dev]
+                sec = inf[devmap][dev][0]
+                hid = inf[devmap][dev][1]
                 sec = sec.lower()
 
                 hid = hid.upper()
@@ -221,12 +223,14 @@ def scan_inf(filename):
                 mainsec = fixup(sec)
                 serv_sec = mainsec + '.services'
 
+                if not inf.has_key(serv_sec): continue
                 tmp = item_lookup(inf[serv_sec], 'AddService')
                 service = tmp[0]
                 sec_service = tmp[2]
                              
                 driver = None
-                if inf[mainsec].has_key('CopyFiles'):
+                if (type(inf[mainsec]) == type({})
+                    and inf[mainsec].has_key('CopyFiles')):
                     sec_files = inf[mainsec]['CopyFiles'][0].lower()
                     sec_files = fixup(sec_files)
                     ### Empty CopyFile Sections...
