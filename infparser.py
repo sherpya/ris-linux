@@ -20,7 +20,7 @@ from sys import argv
 from glob import glob
 from cPickle import dump
 
-__version__ = '0.4'
+__version__ = '0.5'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -95,6 +95,10 @@ def parse_line(sections, name, lineno, line):
             comma = equal+1
 
     if debug > 2: print '[%d] [%s] equal = %d - comma = %d' % (lineno, name, equal, comma)
+
+    if len(line) + equal + comma == -1:
+        if debug: print '[%d] [%s] Invalid line' % (lineno, name)
+        return True
 
     if equal < comma:
         if type(sections[name])!=type({}):
@@ -200,7 +204,7 @@ def scan_inf(filename):
         devlist = []
         for sections in inf['manufacturer'].values():
             devlist = devlist + sections
-            
+
         for devmap in devlist:
             devmap = unquote(devmap.lower())
             for dev in inf[devmap].keys():
@@ -225,8 +229,11 @@ def scan_inf(filename):
                 if inf[mainsec].has_key('CopyFiles'):
                     sec_files = inf[mainsec]['CopyFiles'][0].lower()
                     sec_files = fixup(sec_files)
-                    driver = inf[sec_files][0]
-                else:
+                    ### Empty CopyFile Sections...
+                    if type(inf[sec_files]) == type([]):
+                        driver = inf[sec_files][0]
+
+                if driver is None:
                     driver = inf[sec_service.lower()]['ServiceBinary'][0].split('\\').pop()
                                 
                 if dumpdev: print 'Driver', driver
