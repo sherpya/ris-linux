@@ -3,7 +3,7 @@
 #
 # Boot Information Negotiation Layer - OpenSource Implementation
 #
-# Copyright (C) 2004 Sherpya <sherpya@netfarm.it>
+# Copyright (C) 2005 Gianluigi Tiesi <sherpya@netfarm.it>
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any later
@@ -18,12 +18,12 @@
 from socket import socket, AF_INET, SOCK_DGRAM, getfqdn
 from codecs import utf_16_le_decode, utf_16_le_encode, ascii_encode
 from struct import unpack, pack
-from sys import argv, exit
+from sys import argv, exit as sys_exit
 from time import sleep, time
 from cPickle import load
-from os import chdir
+from os import chdir, getpid
 
-_version_ = '0.5'
+__version__ = '0.5'
 
 #############
 
@@ -114,20 +114,20 @@ RSP       = S+'RSP'
 # Session expired, only works with code 0x1
 UNR       = S+'UNR'
 
-fqdn = getfqdn()
-hostinfo = fqdn.split('.', 1)
-domain = hostinfo.pop()
+myfqdn = getfqdn()
+myhostinfo = myfqdn.split('.', 1)
+mydomain = myhostinfo.pop()
 # workaround if hosts files is broken
 try:
-    hostname = hostinfo.pop()
+    myhostname = myhostinfo.pop()
 except:
-    hostname = domain
+    myhostname = mydomain
     
 server_data = {
-    'domain': domain.upper(),
-    'name'  : hostname.upper(),
-    'dnsdm' : domain,
-    'fqdn'  : fqdn
+    'domain': mydomain.upper(),
+    'name'  : myhostname.upper(),
+    'dnsdm' : mydomain,
+    'fqdn'  : myfqdn
     }
 
 tr_table = {
@@ -198,12 +198,11 @@ def send_file(s, addr, u1, filename):
     print 'Sending', filename
     s.sendto(reply, addr)
 
-def send_challenge(s, addr, server_data):
-   
-    domain = ascii2utf(server_data['domain'])
-    name   = ascii2utf(server_data['name'])
-    dnsdm  = ascii2utf(server_data['dnsdm'])
-    fqdn   = ascii2utf(server_data['fqdn'])
+def send_challenge(s, addr, sd):
+    domain = ascii2utf(sd['domain'])
+    name   = ascii2utf(sd['name'])
+    dnsdm  = ascii2utf(sd['dnsdm'])
+    fqdn   = ascii2utf(sd['fqdn'])
 
     ed = pack('<H', codes.index('DOMAIN')) + pack('<H', len(domain)) + domain + \
          pack('<H', codes.index('NAME'))   + pack('<H', len(name))   + name   + \
@@ -399,7 +398,6 @@ def send_ncr(s, addr, vid, pid, subsys):
     
     data = data + unidata
     data = data + parms
-    data = data
 
     decode_ncr('[S]', data)
     reply = NCR + pack('<I', len(data)) + data + (NULL*2)
@@ -645,11 +643,11 @@ if __name__ == '__main__':
             from posix import close
         except:
             print 'Daemon mode is not supported on this platform (missing fork() syscall or posix module)'
-            exit(-1)
+            sys_exit(-1)
 
         import sys
 
-        if (fork()): exit()
+        if (fork()): sys_exit()
         
         close(sys.stdin.fileno())
         sys.stdin  = open('/dev/null')
@@ -659,13 +657,12 @@ if __name__ == '__main__':
         
         close(sys.stderr.fileno())
         sys.stderr = Log(open(LOGFILE, 'a+'))
-        
 
     try:
         devlist = load(open('devlist.cache'))
     except:
         print 'Could not load devlist.cache, build it with infparser.py'
-        exit(-1)
+        sys_exit(-1)
         
     print 'Succesfully loaded %d devices' % len(devlist)
     chdir('/')
@@ -673,7 +670,7 @@ if __name__ == '__main__':
     s = socket(AF_INET, SOCK_DGRAM)
     s.bind(('', 4011))
     
-    print 'Binlserver started...'
+    print 'Binlserver started... pid: %d' % getpid()
     while 1:
         addr, t, data = get_packet(s)
         if t == FILEREQ:

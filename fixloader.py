@@ -3,7 +3,7 @@
 #
 # Fix for setuploader
 #
-# Copyright (C) 2004 Sherpya <sherpya@netfarm.it>
+# Copyright (C) 2005 Gianluigi Tiesi <sherpya@netfarm.it>
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any later
@@ -15,23 +15,24 @@
 # for more details.
 # ======================================================================
 
-from sys import argv, exit
+from sys import argv, exit as sys_exit
 
-if len(argv) < 2:
-    print 'Usage: fixloader.py ntldr'
-    exit()
+if __name__ == '__main__':
+    if len(argv) < 2:
+        print 'Usage: fixloader.py ntldr'
+        sys_exit()
 
-data = open(argv[1], 'rb').read()
+    data = open(argv[1], 'rb').read()
 
-if data.find('setupldr.exe')==-1:
-    print 'Wrong file'
-    exit()
+    if data.find('setupldr.exe')==-1:
+        print 'Wrong file'
+        sys_exit()
 
-if data[:2] == 'MZ':
-    print 'Loader already fixed'
-    exit()
+    if data[:2] == 'MZ':
+        print 'Loader already fixed'
+        sys_exit()
 
-data = 'MZ' + data.split('MZ', 1).pop()
+    data = 'MZ' + data.split('MZ', 1).pop()
 
-open(argv[1], 'wb').write(data)
-print 'Loader fixed'
+    open(argv[1], 'wb').write(data)
+    print 'Loader fixed'
