@@ -670,7 +670,7 @@ if __name__ == '__main__':
     s = socket(AF_INET, SOCK_DGRAM)
     s.bind(('', 4011))
     
-    print 'Binlserver started... pid: %d' % getpid()
+    print 'Binlserver started... pid %d' % getpid()
     while 1:
         addr, t, data = get_packet(s)
         if t == FILEREQ:
