@@ -15,7 +15,7 @@
 # for more details.
 # ======================================================================
 
-from codecs import utf_16_decode
+from codecs import utf_16_le_decode, BOM_LE, BOM_BE
 from sys import argv
 from glob import glob
 from cPickle import dump
@@ -164,8 +164,8 @@ def parse_inf(filename):
     data = open(filename).read()
     
     ## Cheap Unicode to ascii
-    if data[:2] == '\xff\xfe' or data[:2] == '\xfe\xff':
-        data = utf_16_decode(data)[0]
+    if data[:2] == BOM_LE or data[:2] == BOM_BE:
+        data = utf_16_le_decode(data)[0]
         data = data.encode('ascii', 'ignore')
 
     ## De-inf fixer

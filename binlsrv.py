@@ -16,13 +16,13 @@
 # ======================================================================
 
 from socket import socket, AF_INET, SOCK_DGRAM, getfqdn
-from codecs import utf_16_decode, utf_16_encode, ascii_encode
+from codecs import utf_16_le_decode, utf_16_le_encode, ascii_encode
 from struct import unpack, pack
 from sys import exit
 from time import sleep, time
 from cPickle import load
 
-_version_ = '0.3'
+_version_ = '0.4'
 
 WELCOME='/mnt/disk/ris/OSChooser/Italian/welcome.osc'
 BASEPATH='/mnt/disk/ris/OSChooser/Italian/'
@@ -141,18 +141,18 @@ AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
 NTLM      = 'NTLMSSP\x00'
 
 def utf2ascii(text):
-    #return text.decode('utf-16', 'ignore').encode('ascii', 'ignore')
-    return ascii_encode(utf_16_decode(text, 'ignore')[0], 'ignore')[0]
+    #return text.decode('utf-16-le', 'ignore').encode('ascii', 'ignore')
+    return ascii_encode(utf_16_le_decode(text, 'ignore')[0], 'ignore')[0]
 
 def ascii2utf(text):
-    #return text.encode('utf-16')[2:]
-    return utf_16_encode(text)[0][2:]
+    #return text.encode('utf-16-le')
+    return utf_16_le_encode(text)[0]
 
 def get_packet(s):
     data, addr = s.recvfrom(1024)
     pktype = data[:4]
     data = data[4:]
-    l = unpack('I', data[:4])[0]
+    l = unpack('<I', data[:4])[0]
     print 'Recv %s len = %d' % (pktype[1:], l)
     data = data[4:]
     return addr, pktype, data
@@ -172,7 +172,7 @@ def send_file(s, addr, u1, filename):
 
     data = translate(data)
     
-    l = pack('I', len(data) + len(u1) + 1)
+    l = pack('<I', len(data) + len(u1) + 1)
     reply = reply + l + u1 + data + NULL
     print 'Sending', filename
     s.sendto(reply, addr)
@@ -184,20 +184,20 @@ def send_challenge(s, addr, server_data):
     dnsdm  = ascii2utf(server_data['dnsdm'])
     fqdn   = ascii2utf(server_data['fqdn'])
 
-    ed = pack('H', codes.index('DOMAIN')) + pack('H', len(domain)) + domain + \
-         pack('H', codes.index('NAME'))   + pack('H', len(name))   + name   + \
-         pack('H', codes.index('DNSDM'))  + pack('H', len(dnsdm))  + dnsdm  + \
-         pack('H', codes.index('FQDN'))   + pack('H', len(fqdn))   + fqdn   + \
-         pack('H', codes.index('DNSDM2')) + pack('H', len(dnsdm))  + dnsdm  + \
+    ed = pack('<H', codes.index('DOMAIN')) + pack('<H', len(domain)) + domain + \
+         pack('<H', codes.index('NAME'))   + pack('<H', len(name))   + name   + \
+         pack('<H', codes.index('DNSDM'))  + pack('<H', len(dnsdm))  + dnsdm  + \
+         pack('<H', codes.index('FQDN'))   + pack('<H', len(fqdn))   + fqdn   + \
+         pack('<H', codes.index('DNSDM2')) + pack('<H', len(dnsdm))  + dnsdm  + \
          (NULL *4)
     
     off = 0x38
     #flags = 0xa2898215L
     flags = 0x00018206L
-    data = NTLM + pack('I', NTLM_CHALLENGE)
+    data = NTLM + pack('<I', NTLM_CHALLENGE)
     data = data + encodehdr(domain, off)
     off = off + len(domain)
-    data = data + pack('I', flags)
+    data = data + pack('<I', flags)
     #data = data + AUTH_U1 + (NULL*8) # AUTH_U1 should be the challenge string
     #data = data + 'CHALLENG' + (NULL*8)
     data = data + 'CHALLEN1' + (NULL*8)
@@ -206,15 +206,15 @@ def send_challenge(s, addr, server_data):
     data = data + 'CHALLEN2'
     data = data + domain + ed
 
-    reply = CHL + pack('I', len(data)) + data
+    reply = CHL + pack('<I', len(data)) + data
     decode_ntlm('[S]', data)   
     s.sendto(reply, addr)
         
 def send_res(s, addr, data):
     reply = RES
-    data = pack('I', AUTH_OK)
-    #data = pack('I', AUTH_FAIL)
-    l = pack('I', len(data))
+    data = pack('<I', AUTH_OK)
+    #data = pack('<I', AUTH_FAIL)
+    l = pack('<I', len(data))
     reply = reply + l + data
     print 'Sending Reply 0x%x' % AUTH_OK
     s.sendto(reply, addr)
@@ -223,29 +223,29 @@ def dumphdr(data, pkt):
     return repr(utf2ascii(decodehdr(data, pkt)))
 
 def decodehdr(data, pkt):
-    slen, maxlen, off = unpack('HHI', data[:8])
+    slen, maxlen, off = unpack('<HHI', data[:8])
     value = pkt[off:off+slen]
     return value
 
 def encodehdr(value, off):
-    return pack('HHI', len(value), len(value), off)
+    return pack('<HHI', len(value), len(value), off)
 
 def decode_ntlm(p, data):
     pkt = data
 
     filename = p[1:-1] + '.log'
-    open(filename, 'w').write(AUT + pack('I', len(data)) + data)
+    open(filename, 'w').write(AUT + pack('<I', len(data)) + data)
     
     data = data[8:]
 
     print 'RawData', repr(data)
 
-    t = unpack('I', data[:4])[0]
+    t = unpack('<I', data[:4])[0]
     data = data[4:]
 
     if t == NTLM_NEGOTIATE:
         print p,'Packet type is NTLM_NEGOTIATE'
-        flags = unpack('I', data[:4])[0]
+        flags = unpack('<I', data[:4])[0]
         print p,'Flags = 0x%x' % flags
         data = data[4:]
         print p,'Host', dumphdr(data, pkt)
@@ -257,7 +257,7 @@ def decode_ntlm(p, data):
         print p,'Domain', dumphdr(data, pkt)
         data = data[8:]
         
-        flags = unpack('I', data[:4])[0]
+        flags = unpack('<I', data[:4])[0]
         data = data[4:]
         print p,'Flags = 0x%x' % flags
 
@@ -274,9 +274,9 @@ def decode_ntlm(p, data):
         while 1:
             if len(info) < 4:
                 break
-            t = unpack('H', info[:2])[0]
+            t = unpack('<H', info[:2])[0]
             info = info[2:]
-            l = unpack('H', info[:2])[0]
+            l = unpack('<H', info[:2])[0]
             info = info[2:]
             value = utf2ascii(info[:l])
             info = info[l:]
@@ -288,8 +288,8 @@ def decode_ntlm(p, data):
 
         print p,'LANMAN challenge response', dumphdr(data, pkt)
 
-        print p, 'u1 = 0x%x' % (unpack('I', data[:4]))
-        print p, 'u2 = 0x%x' % (unpack('I', data[4:8]))                   
+        print p, 'u1 = 0x%x' % (unpack('<I', data[:4]))
+        print p, 'u2 = 0x%x' % (unpack('<I', data[4:8]))                   
         
         data = data[8:]
 
@@ -309,7 +309,7 @@ def decode_ntlm(p, data):
         print p,'SessionKey', dumphdr(data, pkt)
         data = data[8:]
 
-        flags = unpack('I', data[:4])[0]
+        flags = unpack('<I', data[:4])[0]
         data = data[4:]
         print p,'Flags = 0x%x' % flags
     elif t == NTLM_ANY:
@@ -346,7 +346,7 @@ def send_ncr(s, addr, vid, pid, subsys):
         except: pass
 
     if dev is None:
-        reply = NCR + pack('I', 0x4) + pack('I', 0xc000000dL)
+        reply = NCR + pack('<I', 0x4) + pack('<I', 0xc000000dL)
         print 'Driver not found'
         s.sendto(reply, addr)
         return
@@ -368,24 +368,24 @@ def send_ncr(s, addr, vid, pid, subsys):
     plen = len(parms)
 
     # Now packet creation
-    data = pack('I', 0x0)            # Result: ok
-    data = data + pack('I', 0x2)     # Type
-    data = data + pack('I', 0x24)    # base offset
-    data = data + pack('I', drv_off) # Driver offset
-    data = data + pack('I', svc_off) # Service offset 
-    data = data + pack('I', plen)    # params len
-    data = data + pack('I', p_off)   # params offset
+    data = pack('<I', 0x0)            # Result: ok
+    data = data + pack('<I', 0x2)     # Type
+    data = data + pack('<I', 0x24)    # base offset
+    data = data + pack('<I', drv_off) # Driver offset
+    data = data + pack('<I', svc_off) # Service offset 
+    data = data + pack('<I', plen)    # params len
+    data = data + pack('<I', p_off)   # params offset
     
     data = data + unidata
     data = data + parms
     data = data
 
     decode_ncr('[S]', data)
-    reply = NCR + pack('I', len(data)) + data + (NULL*2)
+    reply = NCR + pack('<I', len(data)) + data + (NULL*2)
     s.sendto(reply, addr)
 
 def decode_ncr(p, data):
-    result = unpack('I', data[:4])[0]
+    result = unpack('<I', data[:4])[0]
 
     if result != 0x0:
         if result == 0xc000000dL:
@@ -401,29 +401,29 @@ def decode_ncr(p, data):
     print p, 'Result code: 0x%x' % result
     data = data[4:] # 0x0 = OK
 
-    print p,'type: 0x%x' % unpack('I', data[:4])
+    print p,'type: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x2 - fixed (type?)
     
-    b_off = unpack('I', data[:4])[0]
+    b_off = unpack('<I', data[:4])[0]
     print p, 'base offset = 0x%x (%d)' % (b_off, b_off)
     data = data[4:] # 0x24 - fixed
 
-    drv_off = unpack('I', data[:4])[0]
+    drv_off = unpack('<I', data[:4])[0]
     print p, 'drv_off = 0x%x (%d)' % (drv_off, drv_off)
     #print p, '---->', pkt[drv_off-8:].replace('\x00','.')
     data = data[4:] # 0x50 - offset to driver file, -8 from start of packet
 
-    srv_off = unpack('I', data[:4])[0]
+    srv_off = unpack('<I', data[:4])[0]
     print p,'srv_off: 0x%x (%d) -> %d from start' % (srv_off, srv_off, srv_off-8)
     #print p,'--->', pkt[srv_off-8:]
     #print p,'--->', data[srv_off-32:]
     data = data[4:] # 0x6a - offset for unicode string to service name
 
-    plen = unpack('I', data[:4])[0]
+    plen = unpack('<I', data[:4])[0]
     print p,'plen: 0x%x (%d)' % (plen, plen)
     data = data[4:] # 0xcc - size of params (wihout ending 2*NULL)
 
-    p_off = unpack('I', data[:4])[0]
+    p_off = unpack('<I', data[:4])[0]
     print p,'p_off: 0x%x (%d) -> %d from start' % (p_off, p_off, p_off-8)
     #print p, '--->', pkt[p_off-8:].replace('\x00', '.')
     data = data[4:] # 0x76 - offset from start for params
@@ -481,68 +481,68 @@ def send_ncq(s, vid, pid, subsys, spath):
     #subsys  = 0x0
     #spath  = '\\\\ZUFOLZ\RemInst\\Setup\\Italian\\IMAGES\\WINDOWS'
     
-    data = pack('I', 0x2)                # u1
-    data = data + pack('I', 0x0)         # u2
-    data = data + pack('I', 0x9a290c00L) # u3
-    data = data + pack('I', 0x1371)      # u4
-    data = data + pack('I', 0x0)         # u5
-    data = data + pack('I', 0x0)         # u6
-    data = data + pack('I', 0x2)         # u7
-    data = data + pack('H', vid)
-    data = data + pack('H', pid)
+    data = pack('<I', 0x2)                # u1
+    data = data + pack('<I', 0x0)         # u2
+    data = data + pack('<I', 0x9a290c00L) # u3
+    data = data + pack('<I', 0x1371)      # u4
+    data = data + pack('<I', 0x0)         # u5
+    data = data + pack('<I', 0x0)         # u6
+    data = data + pack('<I', 0x2)         # u7
+    data = data + pack('<H', vid)
+    data = data + pack('<H', pid)
     data = data + chr(rev_u1) + chr(rev_u2) + chr(rev_u3) 
     data = data + chr(rev)
-    data = data + pack('I', rev2)
-    data = data + pack('I', subsys)
-    data = data + pack('H', len(spath)) + spath + (NULL *2)
+    data = data + pack('<I', rev2)
+    data = data + pack('<I', subsys)
+    data = data + pack('<H', len(spath)) + spath + (NULL *2)
 
-    reply = NCQ + pack('I', len(data)) + data
+    reply = NCQ + pack('<I', len(data)) + data
     decode_ncq('[R]', data)
     s.send(reply)
 
 def decode_ncq(p, data):
-    #print p,'u1: 0x%x' % unpack('I', data[:4])
+    #print p,'u1: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x2
 
-    #print p,'u2: 0x%x' % unpack('I', data[:4])
+    #print p,'u2: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x0
 
-    #print p,'u3: 0x%x' % unpack('I', data[:4])
+    #print p,'u3: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x9a290c00
 
-    #print p,'u4: 0x%x' % unpack('I', data[:4])
+    #print p,'u4: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1371
 
-    #print p,'u5: 0x%x' % unpack('I', data[:4])
+    #print p,'u5: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x0
 
-    #print p,'u6: 0x%x' % unpack('I', data[:4])
+    #print p,'u6: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x0
 
-    #print p,'u7: 0x%x' % unpack('I', data[:4])
+    #print p,'u7: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x2
     
-    vid = unpack('H', data[:2])[0]
+    vid = unpack('<H', data[:2])[0]
     print p,'Vid: 0x%x' % vid
     data = data[2:]
-    pid = unpack('H', data[:2])[0]
+    pid = unpack('<H', data[:2])[0]
     print p,'Pid: 0x%x' % pid
     data = data[2:]
 
-    print p, 'rev_u1 = 0x%x' % unpack('B', data[0])
-    print p, 'rev_u2 = 0x%x' % unpack('B', data[1])
-    print p, 'rev_u3 = 0x%x' % unpack('B', data[2])
-    print p, 'rev    = 0x%x' % unpack('B', data[3])
+    print p, 'rev_u1 = 0x%x' % unpack('<B', data[0])
+    print p, 'rev_u2 = 0x%x' % unpack('<B', data[1])
+    print p, 'rev_u3 = 0x%x' % unpack('<B', data[2])
+    print p, 'rev    = 0x%x' % unpack('<B', data[3])
     data = data[4:]
     
-    print p, 'rev2   = 0x%x' % unpack('I', data[:4])
+    print p, 'rev2   = 0x%x' % unpack('<I', data[:4])
     data = data[4:]
 
-    subsys = unpack('I', data[:4])[0]
+    subsys = unpack('<I', data[:4])[0]
     print p, 'subsys = 0x%x' % subsys
     data = data[4:]
 
-    l = unpack('H', data[:2])[0]
+    l = unpack('<H', data[:2])[0]
     data = data[2:]
 
     data = data[:l]
@@ -553,23 +553,23 @@ def decode_ncq(p, data):
 def decode_req(p, data):
     print p, 'Decoding REQ:'
 
-    print p,'f1: 0x%x' % unpack('I', data[:4])
+    print p,'f1: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1
 
-    print p,'f2: 0x%x' % unpack('I', data[:4])
+    print p,'f2: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x10001
 
-    print p,'f3: 0x%x' % unpack('I', data[:4])
+    print p,'f3: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x10
 
-    print p,'f4: 0x%x' % unpack('I', data[:4])
+    print p,'f4: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1
 
 
-    print p,'u1: 0x%x' % unpack('I', data[:4])
+    print p,'u1: 0x%x' % unpack('<I', data[:4])
     data = data[4:]
 
-    print p,'u2: 0x%x' % unpack('I', data[:4])
+    print p,'u2: 0x%x' % unpack('<I', data[:4])
     data = data[4:]
 
     ### end of fixed data
@@ -577,22 +577,22 @@ def decode_req(p, data):
     
 def send_req(s, addr):
     reply = open('data1.req').read()
-    #reply = REQ + pack('I', len(data))
+    #reply = REQ + pack('<I', len(data))
     s.sendto(reply, addr)    
 
 def decode_rsp(p, data):
     print p, 'Decoding RSP:'
     
-    print p,'u1: 0x%x' % unpack('I', data[:4])
+    print p,'u1: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1
 
-    print p,'u2: 0x%x' % unpack('I', data[:4])
+    print p,'u2: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x10001
 
-    print p,'u3: 0x%x' % unpack('I', data[:4])
+    print p,'u3: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x10
 
-    print p,'u4: 0x%x' % unpack('I', data[:4])
+    print p,'u4: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1
 
     ### end of fixed data
@@ -601,7 +601,7 @@ def decode_rsp(p, data):
 def send_rsp(s, addr, data):
     data = open('data1.rsp').read()[8:]
     reply = RSP
-    l = pack('I', len(data))
+    l = pack('<I', len(data))
     reply = reply + l + data
     print 'Sending RSP'
     decode_rsp('[S]', data)
@@ -609,8 +609,8 @@ def send_rsp(s, addr, data):
     
 def send_unr(s, addr):
     reply = UNR
-    data = pack('I', 0x1)
-    l = pack('I', len(data))
+    data = pack('<I', 0x1)
+    l = pack('<I', len(data))
     reply = reply + l + data
     print 'Sending UNR (Session Expired)'
     s.sendto(reply, addr)
@@ -659,7 +659,7 @@ if __name__ == '__main__':
         elif t == REQ:
             print 'REQ request, sending RSP'
             decode_req('[R]', data)
-            open('out.hex','w').write(REQ+pack('I',len(data))+data)
+            open('out.hex','w').write(REQ+pack('<I',len(data))+data)
             send_unr(s, addr)
             #send_rsp(s, addr, data)
         else:
