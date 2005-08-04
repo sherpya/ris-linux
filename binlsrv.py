@@ -23,7 +23,7 @@ from time import sleep, time
 from cPickle import load
 from os import chdir, getpid
 
-__version__ = '0.6'
+__version__ = '0.7'
 
 #############
 
@@ -142,6 +142,8 @@ tr_table = {
 
 devlist = None
 
+count = 0
+
 regtype = [ 'REG_NONE', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ' ] 
 codes   = [ 'NULL', 'NAME', 'DOMAIN', 'FQDN', 'DNSDM', 'DNSDM2' ]
 
@@ -163,6 +165,40 @@ class Log:
         self.f.write(s)
         self.f.flush()
 
+def dotted(data):
+    res = ''
+    for i in range(len(data)):
+        if (ord(data[i]) < 32) or (ord(data[i]) > 127):
+            res += '.'
+        else:
+            res += data[i]
+    return res
+
+def hexdump(data):
+    data_len = len(data)
+    off = 0
+    base = 0
+    while 1:
+        start = off
+        end = off + 8
+        if end > data_len: end = data_len
+        values1 = ' '.join([ '%02x' % ord(data[x]) for x in range(start, end) ])
+        data1   = dotted(data[off:off+8])
+        off += 8
+
+        start = off
+        if start > data_len: start = data_len
+        end = off + 8
+        if end > data_len: end = data_len
+    
+        values2 = ' '.join([ '%02x' % ord(data[x]) for x in range(start, end) ])
+        data2   = dotted(data[off:off+8])
+        off += 8
+        
+        print '%08x %-23s   %-23s  |%-8s%-8s|' % (base, values1, values2, data1, data2)
+        base += 16
+        if end - start < 8: break
+
 def utf2ascii(text):
     return ascii_encode(utf_16_le_decode(text, 'ignore')[0], 'ignore')[0]
 
@@ -172,6 +208,7 @@ def ascii2utf(text):
 def get_packet(s):
     data, addr = s.recvfrom(1024)
     pktype = data[:4]
+#    open('/tmp/' + pktype[1:] + '.hex', 'w').write(data)
     data = data[4:]
     l = unpack('<I', data[:4])[0]
     print 'Recv %s len = %d' % (pktype[1:], l)
@@ -251,6 +288,7 @@ def encodehdr(value, off):
     return pack('<HHI', len(value), len(value), off)
 
 def decode_ntlm(p, data):
+    global count
     pkt = data
 
     filename = p[1:-1] + '.log'
@@ -258,7 +296,9 @@ def decode_ntlm(p, data):
     
     data = data[8:]
 
-    print 'RawData', repr(data)
+    hexdump(data)
+    open('/tmp/' + str(count) + '.hex', 'w').write(data)
+    count =+ 1
 
     t = unpack('<I', data[:4])[0]
     data = data[4:]
@@ -314,19 +354,19 @@ def decode_ntlm(p, data):
         data = data[8:]
 
         print p, 'NT challenge response', dumphdr(data, pkt)
-        #print p, 'NT challenge response', repr(utf2ascii(decodehdr(data, pkt)[:52]))
+        print p, 'NT challenge response', repr(utf2ascii(decodehdr(data, pkt)[:52]))
         data = data[8:]
 
-        print p, 'Domain to auth', dumphdr(data, pkt)
+        print p, 'Domain to auth', decodehdr(data, pkt)
         data = data[8:]
 
-        print p, 'Username', dumphdr(data, pkt)
+        print p, 'Username', decodehdr(data, pkt)
         data = data[8:]
 
-        print p, 'Workstation', dumphdr(data, pkt)
+        print p, 'Workstation', decodehdr(data, pkt)
         data = data[8:]
 
-        print p, 'SessionKey', dumphdr(data, pkt)
+        print p, 'SessionKey', repr(decodehdr(data, pkt))
         data = data[8:]
 
         flags = unpack('<I', data[:4])[0]
