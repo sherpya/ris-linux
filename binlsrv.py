@@ -23,12 +23,12 @@ from time import sleep, time
 from cPickle import load
 from os import chdir, getpid
 
-__version__ = '0.7'
+__version__ = '0.7.1'
 
 #############
 
-WELCOME  ='/mnt/disk/ris/OSChooser/English/welcome.osc'
-BASEPATH ='/mnt/disk/ris/OSChooser/English/'
+WELCOME  = '/mnt/disk/ris/OSChooser/English/welcome.osc'
+BASEPATH = '/mnt/disk/ris/OSChooser/English/'
 LOGFILE  = '/var/log/binlsrv.log'
 
 #############
@@ -455,7 +455,7 @@ def decode_ncr(p, data):
         return
 
     pktlen = len(data)
-    pkt = data
+    #pkt = data ## Not used
     print p, 'Packet len = 0x%x (%d)' % (pktlen, pktlen)
     print p, 'Result code: 0x%x' % result
     data = data[4:] # 0x0 = OK
@@ -534,7 +534,7 @@ def send_ncq(s, vid, pid, subsys, spath):
     rev_u1  = 0x2
     rev_u2  = 0x0
     rev_u3  = 0x0
-    rev_u4  = 0x0
+    #rev_u4  = 0x0
     rev     = 0x0
     rev2    = 0x0
     #subsys  = 0x0
