@@ -20,7 +20,7 @@ from sys import argv
 from glob import glob
 from cPickle import dump
 
-__version__ = '0.6'
+__version__ = '0.7'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -82,7 +82,7 @@ def inf_needed(filename, section):
                 return False
             else:
                 return True
-    if debug > 1: print 'Skipping',filename,'none of class or class guid found'
+    if debug > 1: print 'Skipping', filename, 'none of class or class guid found'
     return False
     
 def parse_line(sections, name, lineno, line):
@@ -123,8 +123,12 @@ def parse_line(sections, name, lineno, line):
         if name == 'manufacturer':
             mf = value.split(',', 1)[0].strip()
             mf = mf.replace('"', '')
-            if mf.lower().endswith('.ntx86'): ## also .nt?
-                mf = mf[:-6]
+            # .ntx86 .nt .nt.5.1 .. so far
+            # I hope there are no manifacturer names with dot
+            # a possible solution can be:
+            # pos = mf.lower().find('.n')
+            # if pos != -1: mf = mf[:pos]
+            mf = mf.split('.', 1)[0]
             section[key] = [mf]
             if debug > 1: print 'Manifacturer %s=%s' % (key, section[key])
             return True
@@ -173,7 +177,7 @@ def parse_inf(filename):
         data = utf_16_le_decode(data)[0]
         data = data.encode('ascii', 'ignore')
 
-    ## De-inf fixer
+    ## De-inf fixer ;)
     data = 'Copy'.join(data.split(';Cpy'))
     data = '\n'.join(data.split('\r\n'))
 
