@@ -1,0 +1,135 @@
+* Case insensitive lookup patch for tftp-hpa
+*
+* Copyright (c) 2006 Gianluigi Tiesi <sherpya@netfarm.it>
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Library General Public
+* License as published by the Free Software Foundation; either
+* version 2 of the License, or (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+* Library General Public License for more details.
+*
+* You should have received a copy of the GNU Library General Public
+* License along with this software; if not, write to the
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+
+diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
+--- tftp-hpa-0.40.orig/tftpd/tftpd.c	2004-09-15 00:38:46.000000000 +0200
++++ tftp-hpa-0.40/tftpd/tftpd.c	2006-02-10 06:30:23.000000000 +0100
+@@ -61,6 +61,7 @@
+ #include <pwd.h>
+ #include <limits.h>
+ #include <syslog.h>
++#include <dirent.h>
+ 
+ #include "tftpsubs.h"
+ #include "recvfrom.h"
+@@ -503,6 +504,7 @@
+       setsid();
+ #endif
+     }
++
+   } else {
+     /* 0 is our socket descriptor */
+     close(1); close(2);
+@@ -595,12 +597,14 @@
+      * Now that we have read the request packet from the UDP
+      * socket, we fork and go back to listening to the socket.
+      */
++
+     pid = fork();
+     if (pid < 0) {
+       syslog(LOG_ERR, "fork: %m");
+       exit(EX_OSERR);	/* Return to inetd, just in case */
+     } else if ( pid == 0 )
+       break;			/* Child exit, parent loop */
++
+   }
+   
+   /* Child process: handle the actual request here */
+@@ -713,6 +717,9 @@
+ void	tftp_sendfile(struct formats *, struct tftphdr *, int);
+ void	tftp_recvfile(struct formats *, struct tftphdr *, int);
+ 
++int lookup_entry(const char *comp, char *dest);
++void lookup_file(char *filename);
++
+ struct formats {
+   const char *f_mode;
+   char	*(*f_rewrite)(char *, int, const char **);
+@@ -1049,6 +1056,64 @@
+ }
+ #endif
+ 
++
++int lookup_entry(const char *comp, char *dest)
++{
++  DIR *dirp;
++  struct dirent *dptr;
++  dirp = opendir(dest[0] ? dest : ".");
++  if (!dirp) return 0;
++  while ((dptr = readdir(dirp)))
++  {
++    if (!strcasecmp(dptr->d_name, comp))
++    {
++      if (dest[0]) strcat(dest, "/");
++      strcat(dest, dptr->d_name);
++      closedir(dirp);
++      return 1;
++    }
++  }
++  closedir(dirp);
++  return 0;
++}
++
++
++void lookup_file(char *filename)
++{
++  int found = 0;
++  int len = 0;
++  char dest[1024];
++  char comp[1024];
++  char *check = filename;
++  char *seek = NULL;
++
++  dest[0] = 0;
++  check++;
++  while (*check)
++  {
++    seek = strchr(check, '\\');
++    if (!seek)
++    {
++      if ((*check) && (lookup_entry(check, dest)))
++        found = 1;
++      break;
++    }
++    len = seek - check;
++    memcpy(comp, check, len);
++    comp[len]=0;
++    if (!lookup_entry(comp, dest))
++      break;
++    check += len + 1;
++  }
++
++  if (found)
++  {
++    filename[0] = 0;
++    strcat(filename, dest);
++  }
++}
++
++
+ FILE *file;
+ /*
+  * Validate file access.  Since we
+@@ -1091,6 +1156,7 @@
+       if ( *cp == '.' && memcmp(cp-1, "/../", 4) == 0 ) {
+ 	*errmsg = "Reverse path not allowed";
+ 	return(EACCESS);
++
+       }
+     }
+ 
