@@ -20,7 +20,7 @@ from sys import argv
 from glob import glob
 from cPickle import dump
 
-__version__ = '0.7'
+__version__ = '0.8'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -213,10 +213,14 @@ def scan_inf(filename):
         devlist = []
         for sections in inf['manufacturer'].values():
             devlist = devlist + sections
-
         for devmap in devlist:
-            devmap = unquote(devmap.lower())
+            devmap_k = unquote(devmap.lower())
+            if not inf.has_key(devmap_k):
+                print 'Warning: missing [%s] driver section in %s, ignored' % (devmap, filename)
+                continue
+            devmap = devmap_k
             for dev in inf[devmap].keys():
+                if dev.find('%') == -1: continue # bad infs
                 device = dev.split('%')[1]
                 desc = unquote(str_lookup(inf['strings'], device))
                 sec = inf[devmap][dev][0]
