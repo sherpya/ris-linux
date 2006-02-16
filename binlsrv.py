@@ -22,14 +22,23 @@ from sys import argv, exit as sys_exit
 from time import sleep, time
 from cPickle import load
 from os import chdir, getpid
+from getopt import getopt, error as getopt_error
 
-__version__ = '0.7.1'
+__version__ = '0.8'
+__usage__ = """Usage %s: [-h] [-d] [-l logfile] [-a address] [-p port] [devlist.cache]
+-h, --help     : show this help
+-d, --daemon   : daemonize, unix only [false]
+-l, --logfile= : logfile when used in daemon mode [/var/log/binlsrv.log]
+-a, --address= : ip address to bind to [all interfaces]
+-p, --port=    : port to bind to [4011]
+devlist.cache  : device list cache file [devlist.cache in current dir]
+"""
 
 #############
 
 WELCOME  = '/mnt/disk/ris/OSChooser/English/welcome.osc'
 BASEPATH = '/mnt/disk/ris/OSChooser/English/'
-LOGFILE  = '/var/log/binlsrv.log'
+DUMPING  = False
 
 #############
 
@@ -206,9 +215,15 @@ def ascii2utf(text):
     return utf_16_le_encode(text)[0]
 
 def get_packet(s):
-    data, addr = s.recvfrom(1024)
+    try:
+        data, addr = s.recvfrom(1024)
+    except KeyboardInterrupt:
+        print 'Server terminated by user request'
+        s.close()
+        sys_exit(0)
+
     pktype = data[:4]
-#    open('/tmp/' + pktype[1:] + '.hex', 'w').write(data)
+    if DUMPING: open('/tmp/' + pktype[1:] + '.hex', 'w').write(data)
     data = data[4:]
     l = unpack('<I', data[:4])[0]
     print 'Recv %s len = %d' % (pktype[1:], l)
@@ -291,13 +306,14 @@ def decode_ntlm(p, data):
     global count
     pkt = data
 
-    filename = p[1:-1] + '.log'
-    open(filename, 'w').write(AUT + pack('<I', len(data)) + data)
+    if DUMPING:
+        filename = '/tmp/' + p[1:-1] + '.log'
+        open(filename, 'w').write(AUT + pack('<I', len(data)) + data)
     
     data = data[8:]
 
     hexdump(data)
-    open('/tmp/' + str(count) + '.hex', 'w').write(data)
+    if DUMPING: open('/tmp/' + str(count) + '.hex', 'w').write(data)
     count =+ 1
 
     t = unpack('<I', data[:4])[0]
@@ -542,11 +558,11 @@ def send_ncq(s, vid, pid, subsys, spath):
     
     data = pack('<I', 0x2)                # u1
     data = data + pack('<I', 0x0)         # u2
-    data = data + pack('<I', 0x9a290c00L) # u3
-    data = data + pack('<I', 0x1371)      # u4
-    data = data + pack('<I', 0x0)         # u5
-    data = data + pack('<I', 0x0)         # u6
-    data = data + pack('<I', 0x2)         # u7
+    data = data + pack('<I', 0x12345678L) # mac1
+    data = data + pack('<I', 0x9abc)      # mac2
+    data = data + pack('<I', 0x0)         # u3
+    data = data + pack('<I', 0x0)         # u4
+    data = data + pack('<I', 0x2)         # u5
     data = data + pack('<H', vid)
     data = data + pack('<H', pid)
     data = data + chr(rev_u1) + chr(rev_u2) + chr(rev_u3) 
@@ -561,25 +577,25 @@ def send_ncq(s, vid, pid, subsys, spath):
 
 def decode_ncq(p, data):
     #print p, 'u1: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x2
+    data = data[4:] # always 0x2
 
     #print p, 'u2: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x0
+    data = data[4:] # always 0x0
+
+    mac  = [ord(x) for x in data[:6]]
+    print p, 'Mac address', ':'.join(['%02x' % x for x in mac])
+    data = data[6:]
+
+    data = data[2:] # Padding ?
 
     #print p, 'u3: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x9a290c00
+    data = data[4:] # always 0x0
 
     #print p, 'u4: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x1371
+    data = data[4:] # always 0x0
 
     #print p, 'u5: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x0
-
-    #print p, 'u6: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x0
-
-    #print p, 'u7: 0x%x' % unpack('<I', data[:4])
-    data = data[4:] # 0x2
+    data = data[4:] # always 0x2
     
     vid = unpack('<H', data[:2])[0]
     print p, 'Vid: 0x%x' % vid
@@ -605,7 +621,7 @@ def decode_ncq(p, data):
     data = data[2:]
 
     data = data[:l]
-    #print p, 'data:', data.replace('\x00','')
+    print p, 'Source path:', data.replace('\x00','')
     return vid, pid, subsys
 
 
@@ -636,7 +652,7 @@ def decode_req(p, data):
     
 def send_req(s, addr):
     reply = open('data1.req').read()
-    #reply = REQ + pack('<I', len(data))
+    reply = REQ + pack('<I', len(data))
     s.sendto(reply, addr)    
 
 def decode_rsp(p, data):
@@ -697,42 +713,88 @@ def send_unr(s, addr):
     reply = reply + l + data
     print 'Sending UNR (Session Expired)'
     s.sendto(reply, addr)
+
+def daemonize(logfile):
+    try:
+        from os import fork
+        from posix import close
+    except:
+        print 'Daemon mode is not supported on this platform (missing fork() syscall or posix module)'
+        sys_exit(-1)
+
+    import sys
+    if (fork()): sys_exit(0) # parent return to shell
+
+    ### Child
+    close(sys.stdin.fileno())
+    sys.stdin  = open('/dev/null')
+    close(sys.stdout.fileno())
+    sys.stdout = Log(open(logfile, 'a+'))
+    close(sys.stderr.fileno())
+    sys.stderr = Log(open(logfile, 'a+'))
+    chdir('/')
     
 if __name__ == '__main__':
-    ### Daemon Mode
-    ### Unix only
-    if len(argv) > 1 and (argv[1] == '--daemon' or argv[1] == '-d'):
-        try:
-            from os import fork
-            from posix import close
-        except:
-            print 'Daemon mode is not supported on this platform (missing fork() syscall or posix module)'
-            sys_exit(-1)
+    ## Defaults
+    daemon  = False
+    logfile = '/var/log/binlsrv.log'
+    address = ''
+    port    = 4011
+    devfile = 'devlist.cache'
 
-        import sys
-
-        if (fork()): sys_exit()
-        
-        close(sys.stdin.fileno())
-        sys.stdin  = open('/dev/null')
-        
-        close(sys.stdout.fileno())
-        sys.stdout = Log(open(LOGFILE, 'a+'))
-        
-        close(sys.stderr.fileno())
-        sys.stderr = Log(open(LOGFILE, 'a+'))
+    ## Parse command line arguments.
+    shortopts = 'hdl:a:p:'
+    longopts = [ 'help', 'daemon', 'logfile=', 'address=', 'port=' ]
 
     try:
-        devlist = load(open('devlist.cache'))
-    except:
-        print 'Could not load devlist.cache, build it with infparser.py'
+        opts, args = getopt(argv[1:], shortopts, longopts)
+        if len(args) > 1:
+            raise getopt_error, 'Too many device lists files specified %s' % ','.join(args)
+    except getopt_error, errstr:
+        print 'Error:', errstr
+        print __usage__ % argv[0]
         sys_exit(-1)
-        
+
+    for opt, arg in opts:
+        opt = opt.split('-').pop()
+
+        if opt in ('h', 'help'):
+            print __usage__ % argv[0]
+            sys_exit(0)
+
+        if opt in ('d', 'daemon'):
+            daemon = True
+            continue
+        if opt in ('l', 'logfile'):
+            logfile = arg
+            continue
+        if opt in ('a', 'address'):
+            address = arg
+            continue
+        if opt in ('p', 'port'):
+            try:
+                port = int(arg)
+            except:
+                port = -1
+
+    if (port <= 0) or (port >= 0xffff):
+        print 'Port not in range 1-65534'
+        sys_exit(-1)
+
+    if len(args):
+        devfile = args[0]
+
+    try:
+        devlist = load(open(devfile))
+    except:
+        print 'Could not load %s as cache, build it with infparser.py' % devfile
+        sys_exit(-1)
+
+    if daemon: daemonize(logfile)
     print 'Succesfully loaded %d devices' % len(devlist)
-    chdir('/')
 
     s = socket(AF_INET, SOCK_DGRAM)
-    s.bind(('', 4011))
+    s.bind((address, port))
     
     print 'Binlserver started... pid %d' % getpid()
     while 1:
@@ -761,16 +823,16 @@ if __name__ == '__main__':
             sleep(1)
         elif t == NCQ:
             print 'NCQ Driver request'
-            #open('req.hex','w').write(data)
+            if DUMPING: open('/tmp/ncq.hex','w').write(data)
             vid, pid, subsys = decode_ncq('[R]', data)
             send_ncr(s, addr, vid, pid, subsys)
         elif t == REQ:
             print 'REQ request, sending RSP'
             decode_req('[R]', data)
-            open('out.hex','w').write(REQ+pack('<I',len(data))+data)
+            if DUMPING: open('/tmp/req.hex','w').write(REQ+pack('<I',len(data))+data)
             send_unr(s, addr)
             #send_rsp(s, addr, data)
         else:
             print 'Unknown Request: ', t[1:]
             print 'Data: ', repr(data)
-            open('out.hex','w').write(data)
+            if DUMPING: open('/tmp/unknown.hex','w').write(data)
