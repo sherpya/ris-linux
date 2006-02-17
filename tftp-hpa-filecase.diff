@@ -18,7 +18,7 @@
 
 diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
 --- tftp-hpa-0.40.orig/tftpd/tftpd.c	2004-09-15 00:38:46.000000000 +0200
-+++ tftp-hpa-0.40/tftpd/tftpd.c	2006-02-10 06:30:23.000000000 +0100
++++ tftp-hpa-0.40/tftpd/tftpd.c	2006-02-17 23:41:31.000000000 +0100
 @@ -61,6 +61,7 @@
  #include <pwd.h>
  #include <limits.h>
@@ -27,30 +27,7 @@ diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
  
  #include "tftpsubs.h"
  #include "recvfrom.h"
-@@ -503,6 +504,7 @@
-       setsid();
- #endif
-     }
-+
-   } else {
-     /* 0 is our socket descriptor */
-     close(1); close(2);
-@@ -595,12 +597,14 @@
-      * Now that we have read the request packet from the UDP
-      * socket, we fork and go back to listening to the socket.
-      */
-+
-     pid = fork();
-     if (pid < 0) {
-       syslog(LOG_ERR, "fork: %m");
-       exit(EX_OSERR);	/* Return to inetd, just in case */
-     } else if ( pid == 0 )
-       break;			/* Child exit, parent loop */
-+
-   }
-   
-   /* Child process: handle the actual request here */
-@@ -713,6 +717,9 @@
+@@ -713,6 +714,9 @@
  void	tftp_sendfile(struct formats *, struct tftphdr *, int);
  void	tftp_recvfile(struct formats *, struct tftphdr *, int);
  
@@ -60,7 +37,7 @@ diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
  struct formats {
    const char *f_mode;
    char	*(*f_rewrite)(char *, int, const char **);
-@@ -1049,6 +1056,64 @@
+@@ -1049,6 +1053,64 @@
  }
  #endif
  
@@ -125,11 +102,12 @@ diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
  FILE *file;
  /*
   * Validate file access.  Since we
-@@ -1091,6 +1156,7 @@
-       if ( *cp == '.' && memcmp(cp-1, "/../", 4) == 0 ) {
- 	*errmsg = "Reverse path not allowed";
- 	return(EACCESS);
+@@ -1075,6 +1137,8 @@
+   tsize_ok = 0;
+   *errmsg = NULL;
+   
++  if (*filename == '\\') lookup_file(filename);
 +
-       }
-     }
- 
+   if (!secure) {
+     if (*filename != '/') {
+       *errmsg = "Only absolute filenames allowed";
