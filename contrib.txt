@@ -1,0 +1,11 @@
+People contributed to this project (tell me if you are not here and you should be):
+
+Logger Class Wrapper:
+Sorin Sbarnea <sorin@intersol>
+
+Server Options using getopt:
+Daniel Thom <dath@polyserve.com>
+- also pointed me about using different in the client
+
+all guys sent me packets dump, weird inf to parse, etc.
+so I fixed some bugs :)
