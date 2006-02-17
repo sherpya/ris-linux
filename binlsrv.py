@@ -34,10 +34,20 @@ __usage__ = """Usage %s: [-h] [-d] [-l logfile] [-a address] [-p port] [devlist.
 devlist.cache  : device list cache file [devlist.cache in current dir]
 """
 
-#############
+OSC_NOTFOUND="""<OSCML>
+<META KEY=F3 ACTION="REBOOT">
+<TITLE>  Client Installation Wizard</TITLE>
+<FOOTER>  [F3] restart computer</FOOTER>
+<BODY left=5 right=75>
+<BR><BR>The requested file %s was not found on the server
+</BODY>
+</OSCML>
+"""
 
-WELCOME  = '/mnt/disk/ris/OSChooser/English/welcome.osc'
-BASEPATH = '/mnt/disk/ris/OSChooser/English/'
+#############
+# Make sure there is the trailing / here
+BASEPATH = '/mnt/disk/ris/OSChooser/English/' 
+WELCOME  = 'welcome.osc'
 DUMPING  = False
 
 #############
@@ -98,29 +108,29 @@ NTLM_ANY          = 0
 #0xC0000193L This user account has expired.
 #0xC0000224L The user.s password must be changed before logging on the first time.
 
-AUTH_FAIL = 0x8009030cL
-AUTH_OK   = 0x00000000L
+AUTH_OK            = 0x00000000L
+SEC_E_LOGON_DENIED = 0x8009030cL
 
 MAGIC = 'KGS!@#$%'
 C = '\x81'
 S = '\x82'
 
-FILEREQ   = C+'RQU' # 8152 5155 
-FILEREPLY = S+'RSU' # 8252 5355
+FILEREQ   = C+'RQU' # 8152 5155 - OSC File request
+FILEREPLY = S+'RSU' # 8252 5355 - OSC File reply
 
-NEG       = C+'NEG' # 814e 4547
-CHL       = S+'CHL' # 8243 484c
+NEG       = C+'NEG' # 814e 4547 - NTLM Negotiate
+CHL       = S+'CHL' # 8243 484c - NTLM Sending Challenge
 
-AUT       = C+'AUT' # 8141 5554
-RES       = S+'RES' # 8252 4553
+AUT       = C+'AUT' # 8141 5554 - NTLM Autorize
+RES       = S+'RES' # 8252 4553 - NTLM Auth reply
 
-NCQ       = C+'NCQ'
-NCR       = S+'NCR'
+NCQ       = C+'NCQ' # 814e 4351 - Network Card Query
+NCR       = S+'NCR' # 824e 4352 - Network Card Reply
 
-REQ       = C+'REQ' # 8152 4551
-RSP       = S+'RSP' # 8252 5350
+REQ       = C+'REQ' # 8152 4551 - Unknown :(
+RSP       = S+'RSP' # 8252 5350 - Unknown :(
 
-OFF       = C+'OFF' # 814f 4646
+OFF       = C+'OFF' # 814f 4646 - Maybe like reboot and start new rom
 
 # Session expired, only works with code 0x1
 UNR       = S+'UNR'
@@ -163,7 +173,7 @@ AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
 
 NTLM      = 'NTLMSSP\x00'
 
-### Logger class wrapper (Sorin Sbarnea <sorin@intersol>)
+### Logger class wrapper
 class Log:
     """file like for writes with auto flush after each write
     to ensure that everything is logged, even during an
@@ -235,19 +245,20 @@ def translate(text):
         text = tr_table[tr].join(text.split(tr))
     return text
 
-def send_file(s, addr, u1, filename):
+def send_file(s, addr, u1, basepath, filename):
     reply = FILEREPLY
+    fullpath = basepath + filename
     try:
-        data = open(filename).read()
+        data = open(fullpath).read()
+        print 'Sending', fullpath
     except:
-        print 'Cannot find file', filename
-        return
+        print 'Cannot find file', fullpath
+        data = OSC_NOTFOUND % filename
 
     data = translate(data)
     
     l = pack('<I', len(data) + len(u1) + 1)
     reply = reply + l + u1 + data + NULL
-    print 'Sending', filename
     s.sendto(reply, addr)
 
 def send_challenge(s, addr, sd):
@@ -283,12 +294,13 @@ def send_challenge(s, addr, sd):
     s.sendto(reply, addr)
         
 def send_res(s, addr, data):
+    result = AUTH_OK
+    #result = SEC_E_LOGON_DENIED
     reply = RES
-    data = pack('<I', AUTH_OK)
-    #data = pack('<I', AUTH_FAIL)
+    data = pack('<I', result)
     l = pack('<I', len(data))
     reply = reply + l + data
-    print 'Sending Reply 0x%x' % AUTH_OK
+    print 'Sending Reply 0x%x' % result
     s.sendto(reply, addr)
 
 def dumphdr(data, pkt):
@@ -648,7 +660,7 @@ def decode_req(p, data):
     data = data[4:]
 
     ### end of fixed data
-    print 'Data:', repr(data)
+    hexdump(data)
     
 def send_req(s, addr):
     reply = open('data1.req').read()
@@ -671,7 +683,7 @@ def decode_rsp(p, data):
     data = data[4:] # 0x1
 
     ### end of fixed data
-    print 'Data:', repr(data)
+    hexdump(data)
 
 def decode_off(p, data):
     print p, 'Decoding OFF:'
@@ -713,6 +725,18 @@ def send_unr(s, addr):
     reply = reply + l + data
     print 'Sending UNR (Session Expired)'
     s.sendto(reply, addr)
+
+def parse_arguments(params):
+    ### Parse RQU arguments (like a cgi)
+    if len(params) < 2: return {}
+    arglist = params.split('\n')
+    plist = {}
+    for arg in arglist:
+        try:
+            key, value = arg.split('=', 1)
+        except: continue
+        plist[key] = value
+    return plist
 
 def daemonize(logfile):
     try:
@@ -803,22 +827,26 @@ if __name__ == '__main__':
             u1 = data[:7*4]
             data = data[7*4:]
             if data == '\n':
-                send_file(s, addr, u1, WELCOME)
+                send_file(s, addr, u1, BASEPATH, WELCOME)
             else:
-                if data.lower().startswith('launch'):
-                    send_file(s, addr, u1, BASEPATH+'warning.osc')
-                print 'RawData:',repr(data)
-                filename = data.strip().lower() + '.osc'
+                filename, params = data.split('\n', 1)
+                filename = filename.lower() + '.osc'
+                params = parse_arguments(params)
                 print 'Client requested:', filename
-                send_file(s, addr, u1, BASEPATH+filename)                
+                if len(params): print 'Arguments:', repr(params)
+                ## TODO there are also other actions
+                if filename.startswith('launch'):
+                    send_file(s, addr, u1, BASEPATH, 'warning.osc')
+                else:
+                    send_file(s, addr, u1, BASEPATH, filename)                
         elif t == NEG:
-            decode_ntlm('[R]', data)
+            decode_ntlm('[C]', data)
             print 'NEG request, sending CHALLENGE'
             send_challenge(s, addr, server_data)
             sleep(1)
         elif t == AUT:
             print 'AUT request, sending ok'
-            decode_ntlm('[R]', data)
+            decode_ntlm('[C]', data)
             send_res(s, addr, data)
             sleep(1)
         elif t == NCQ:
@@ -827,8 +855,8 @@ if __name__ == '__main__':
             vid, pid, subsys = decode_ncq('[R]', data)
             send_ncr(s, addr, vid, pid, subsys)
         elif t == REQ:
-            print 'REQ request, sending RSP'
-            decode_req('[R]', data)
+            print 'REQ request, sending Session Expired (RSP not implemented)'
+            decode_req('[C]', data)
             if DUMPING: open('/tmp/req.hex','w').write(REQ+pack('<I',len(data))+data)
             send_unr(s, addr)
             #send_rsp(s, addr, data)
