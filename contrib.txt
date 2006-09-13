@@ -5,7 +5,6 @@ Sorin Sbarnea <sorin@intersol>
 
 Server Options using getopt:
 Daniel Thom <dath@polyserve.com>
-- also pointed me about using different in the client
+- also pointed me about using different ports in the client
 
 all guys sent me packets dump, weird inf to parse, etc.
-so I fixed some bugs :)
