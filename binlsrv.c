@@ -22,6 +22,10 @@
  * Compilation on msvc : cl.exe binlsrv.c ws2_32.lib
  */
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_DEPRECATE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
