@@ -90,7 +90,7 @@ if __name__ == '__main__':
         pat = re.compile(r'NTLDR', re.IGNORECASE)
         out = pat.sub(loader, data)
         if out == data:
-            print 'No string was replaced, make sure that the string is not yet changed'
+            print 'No string was replaced, make sure that the string is not already changed'
             sys_exit(-1)
         open(filename, 'wb').write(out)
         print 'Loader succesfully changed to', loader
@@ -135,7 +135,7 @@ if __name__ == '__main__':
             pat = re.compile(r'winnt\.sif', re.IGNORECASE)
             out = pat.sub(response, data)
             if out == data:
-                print 'No string was replaced, make sure that the string is not yet changed'
+                print 'No string was replaced, make sure that the string is not already changed'
                 sys_exit(-1)
             print 'Response changed to', response
 
