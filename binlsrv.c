@@ -80,7 +80,7 @@ typedef unsigned __int16 uint16_t;
 #define PKT_OFF             0x46464f81  /* Reboot to new pxe rom */
 #define PKT_UNR             0x524e5582  /* Session expired */
 
-#define NCR_OK              0x0
+#define NCR_OK              0x00000000
 #define NCR_KO              0xc000000d
 
 const char ris_params[] = "Description\0" "2\0" "Ris NIC Card\0"
