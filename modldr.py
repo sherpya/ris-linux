@@ -25,10 +25,10 @@ __version__ = '0.1'
 
 __usage__ = """%s: [-l loader] [-p port] [-v] [-r response] inputfile
 input file can be:
-startrom - change OsLoader [-l] : exactly 5 chars - only if not yet changed
+startrom - change OsLoader [-l] : exactly 5 chars - only if not already changed
 OsLoader - change port [-p] : 16 bit integer
          - display current port [-v] - no modification are written
-           change response file [-r] : exactly 9 chars - only if not yet changed
+           change response file [-r] : exactly 9 chars - only if not already changed
 !!! Warning it will work in-place, the original file is modified !!!
 """
 arglist = 'l:p:vr:'
