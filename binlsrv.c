@@ -63,11 +63,25 @@ typedef unsigned __int16 uint16_t;
 #error "Unknown byte order"
 #endif
 
-#define PKT_NCQ             0x51434e81 /* LE */
-#define PKT_NCR             0x52434e82 /* LE */
+#define PKT_NCQ             0x51434e81  /* Network Card Query */
+#define PKT_NCR             0x52434e82  /* Network Card Reply */
 
-#define NCR_OK              0x0        /* LE = BE */
-#define NCR_KO              0xc000000d /* LE */
+#define PKT_RQU             0x55515281  /* OSC File request */
+#define PKT_RSU             0x55535282  /* OSC File reply */
+
+#define PKT_NEG             0x47454e81  /* NTLM Negotiate */
+#define PKT_CHL             0x4c484382  /* NTLM Sending Challenge */
+#define PKT_AUT             0x54554181  /* NTLM Autorize */
+#define PKT_RES             0x53455282  /* NTLM Auth reply */
+
+#define PKT_REQ             0x51455281  /* Unknown */
+#define PKT_RSP             0x50535282  /* Unknown */
+
+#define PKT_OFF             0x46464f81  /* Reboot to new pxe rom */
+#define PKT_UNR             0x524e5582  /* Session expired */
+
+#define NCR_OK              0x0
+#define NCR_KO              0xc000000d
 
 const char ris_params[] = "Description\0" "2\0" "Ris NIC Card\0"
                           "Characteristics\0" "1\0" "132\0"
@@ -96,6 +110,39 @@ static void stop_console_handler(void)
     SetConsoleCtrlHandler((PHANDLER_ROUTINE) cleanup, FALSE); 
 }
 #endif
+
+const char *type2str(uint32_t type)
+{
+    switch (type)
+    {
+        case PKT_NCQ:
+            return "[NCQ] Network Card Query";
+        case PKT_NCR:
+            return "[NCR] Network Card Reply";
+        case PKT_RQU:
+            return "[RQU] OSC File request";
+        case PKT_RSU:
+            return "[RSU] OSC File reply";
+        case PKT_NEG:
+            return "[NEG] NTLM Negotiate";
+        case PKT_CHL:
+            return "[CHL] NTLM Sending Challenge";
+        case PKT_AUT:
+            return "[AUT] NTLM Autorize";
+        case PKT_RES:
+            return "[RES] NTLM Auth reply";
+        case PKT_REQ:
+            return "[REQ] Unknown";
+        case PKT_RSP:
+            return "[REQ] Unknown";
+        case PKT_OFF:
+            return "[OFF] Reboot to new pxe rom";
+        case PKT_UNR:
+            return "[UNR] Session expired";
+        default:
+            return "[XXX] Unknown";
+    }
+}
 
 char get_string(FILE *fd, char *dest, size_t size)
 {
@@ -215,7 +262,7 @@ int main(int argc, char *argv[])
     atexit(stop_console_handler);
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != NO_ERROR)
     {
-        printf("Error at WSAStartup()\n");
+        fprintf(stderr, "Error at WSAStartup()\n");
         return -1;
     }
 #else
@@ -226,7 +273,7 @@ int main(int argc, char *argv[])
 
     if (m_socket == INVALID_SOCKET)
     {
-        printf("Error at socket(): %d\n", WSAGetLastError());
+        fprintf(stderr, "Error at socket(): %d\n", WSAGetLastError());
         WSACleanup();
         return -1;
     }
@@ -243,6 +290,7 @@ int main(int argc, char *argv[])
     }
 
     printf("Mini Binl Server - Copyright (c) 2005-2006 Gianluigi Tiesi\n");
+    printf("This program is free software\n");
     printf("Listening on port %d\n", PORT);
 
     while (1)
@@ -264,7 +312,7 @@ int main(int argc, char *argv[])
         }
 
         memcpy(&type, buffer, sizeof(type));
-        printf("Received %d bytes, packet [0x%08x] from client\n", retval, SWAB32(type));
+        printf("Received %d bytes, packet %s\n", retval, type2str(SWAB32(type)));
 
         if (SWAB32(type) != PKT_NCQ)
         {
@@ -339,7 +387,7 @@ int main(int argc, char *argv[])
             value = SWAB32(offset);
             memcpy(&packet[0x4], &value, sizeof(value));
 
-            printf("Found - Sending NCR OK\n");
+            printf("Driver found - Sending NCR OK\n");
             retval = sendto(m_socket, packet, offset, 0, (struct sockaddr *) &from, fromlen);
             if (retval < 0) fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
         }
@@ -351,7 +399,7 @@ int main(int argc, char *argv[])
             offset += sizeof(offset);
             memcpy(&packet[offset], &res, sizeof(res));
             offset += sizeof(res);
-            printf("Not Found - Sending NCR Fail\n");
+            printf("Driver not found - Sending NCR Fail\n");
             retval = sendto(m_socket, packet, offset, 0, (struct sockaddr *) &from, fromlen);
             if (retval == SOCKET_ERROR) fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
         }
