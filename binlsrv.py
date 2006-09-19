@@ -130,10 +130,10 @@ NCR       = S+'NCR' # 824e 4352 - Network Card Reply
 REQ       = C+'REQ' # 8152 4551 - Unknown :(
 RSP       = S+'RSP' # 8252 5350 - Unknown :(
 
-OFF       = C+'OFF' # 814f 4646 - Maybe like reboot and start new rom
+OFF       = C+'OFF' # 814f 4646 - Reboot to new pxe rom
 
 # Session expired, only works with code 0x1
-UNR       = S+'UNR'
+UNR       = S+'UNR' # 8255 4e52
 
 myfqdn = getfqdn()
 myhostinfo = myfqdn.split('.', 1)
