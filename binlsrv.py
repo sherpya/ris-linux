@@ -46,7 +46,7 @@ OSC_NOTFOUND="""<OSCML>
 
 #############
 # Make sure there is the trailing / here
-BASEPATH = '/mnt/disk/ris/OSChooser/English/' 
+BASEPATH = '/mnt/disk/ris/OSChooser/English/'
 WELCOME  = 'welcome.osc'
 DUMPING  = False
 
@@ -143,7 +143,7 @@ try:
     myhostname = myhostinfo.pop()
 except:
     myhostname = mydomain
-    
+
 server_data = {
     'domain': mydomain.upper(),
     'name'  : myhostname.upper(),
@@ -163,7 +163,7 @@ devlist = None
 
 count = 0
 
-regtype = [ 'REG_NONE', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ' ] 
+regtype = [ 'REG_NONE', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ' ]
 codes   = [ 'NULL', 'NAME', 'DOMAIN', 'FQDN', 'DNSDM', 'DNSDM2' ]
 
 NULL = chr(0x0)
@@ -209,11 +209,11 @@ def hexdump(data):
         if start > data_len: start = data_len
         end = off + 8
         if end > data_len: end = data_len
-    
+
         values2 = ' '.join([ '%02x' % ord(data[x]) for x in range(start, end) ])
         data2   = dotted(data[off:off+8])
         off += 8
-        
+
         print '%08x %-23s   %-23s  |%-8s%-8s|' % (base, values1, values2, data1, data2)
         base += 16
         if end - start < 8: break
@@ -256,7 +256,7 @@ def send_file(s, addr, u1, basepath, filename):
         data = OSC_NOTFOUND % filename
 
     data = translate(data)
-    
+
     l = pack('<I', len(data) + len(u1) + 1)
     reply = reply + l + u1 + data + NULL
     s.sendto(reply, addr)
@@ -273,7 +273,7 @@ def send_challenge(s, addr, sd):
          pack('<H', codes.index('FQDN'))   + pack('<H', len(fqdn))   + fqdn   + \
          pack('<H', codes.index('DNSDM2')) + pack('<H', len(dnsdm))  + dnsdm  + \
          (NULL *4)
-    
+
     off = 0x38
     #flags = 0xa2898215L
     flags = 0x00018206L
@@ -290,9 +290,9 @@ def send_challenge(s, addr, sd):
     data = data + domain + ed
 
     reply = CHL + pack('<I', len(data)) + data
-    decode_ntlm('[S]', data)   
+    decode_ntlm('[S]', data)
     s.sendto(reply, addr)
-        
+
 def send_res(s, addr, data):
     result = AUTH_OK
     #result = SEC_E_LOGON_DENIED
@@ -321,7 +321,7 @@ def decode_ntlm(p, data):
     if DUMPING:
         filename = '/tmp/' + p[1:-1] + '.log'
         open(filename, 'w').write(AUT + pack('<I', len(data)) + data)
-    
+
     data = data[8:]
 
     hexdump(data)
@@ -338,13 +338,13 @@ def decode_ntlm(p, data):
         data = data[4:]
         print p, 'Host', dumphdr(data, pkt)
         data = data[8:]
-        print p, 'Domain', dumphdr(data, pkt)   
+        print p, 'Domain', dumphdr(data, pkt)
     elif t == NTLM_CHALLENGE:
         print p, 'Packet type is NTLM_CHALLENGE'
-        
+
         print p, 'Domain', dumphdr(data, pkt)
         data = data[8:]
-        
+
         flags = unpack('<I', data[:4])[0]
         data = data[4:]
         print p, 'Flags = 0x%x' % flags
@@ -355,7 +355,7 @@ def decode_ntlm(p, data):
 
         # NULL * 8
         data = data[8:]
-                
+
         info = decodehdr(data, pkt)
         data = data[8:]
 
@@ -377,8 +377,8 @@ def decode_ntlm(p, data):
         print p, 'LANMAN challenge response', dumphdr(data, pkt)
 
         print p, 'u1 = 0x%x' % (unpack('<I', data[:4]))
-        print p, 'u2 = 0x%x' % (unpack('<I', data[4:8]))                   
-        
+        print p, 'u2 = 0x%x' % (unpack('<I', data[4:8]))
+
         data = data[8:]
 
         print p, 'NT challenge response', dumphdr(data, pkt)
@@ -417,7 +417,7 @@ def send_ncr(s, addr, vid, pid, subsys):
     #vid = 0x10b7
     #pid = 0x9200
     #subsys = 0x100010B7
-    
+
     device = 'PCI\\VEN_%04X&DEV_%04X' % (vid, pid)
     device_sub = device + '&SUBSYS_%08X' % subsys
 
@@ -440,14 +440,14 @@ def send_ncr(s, addr, vid, pid, subsys):
         return
 
     print 'Found', dev_uni, 'in', dev['inf']
-    
+
     unidata = ascii2utf(dev_uni)    + (NULL *2) + \
               ascii2utf(dev['drv']) + (NULL *2) + \
               ascii2utf(dev['svc']) + (NULL *2)
 
     drv_off = 0x24    + (len(dev_uni)+1)    * 2
     svc_off = drv_off + (len(dev['drv'])+1) * 2
-    p_off   = svc_off + (len(dev['svc'])+1) * 2 
+    p_off   = svc_off + (len(dev['svc'])+1) * 2
 
     parms = 'Description\x002\x00'     + dev['desc']  + '\x00' + \
             'Characteristics\x001\x00' + dev['char']  + '\x00' + \
@@ -460,10 +460,10 @@ def send_ncr(s, addr, vid, pid, subsys):
     data = data + pack('<I', 0x2)     # Type
     data = data + pack('<I', 0x24)    # base offset
     data = data + pack('<I', drv_off) # Driver offset
-    data = data + pack('<I', svc_off) # Service offset 
+    data = data + pack('<I', svc_off) # Service offset
     data = data + pack('<I', plen)    # params len
     data = data + pack('<I', p_off)   # params offset
-    
+
     data = data + unidata
     data = data + parms
 
@@ -490,7 +490,7 @@ def decode_ncr(p, data):
 
     print p, 'type: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x2 - fixed (type?)
-    
+
     b_off = unpack('<I', data[:4])[0]
     print p, 'base offset = 0x%x (%d)' % (b_off, b_off)
     data = data[4:] # 0x24 - fixed
@@ -514,7 +514,7 @@ def decode_ncr(p, data):
     print p, 'p_off: 0x%x (%d) -> %d from start' % (p_off, p_off, p_off-8)
     #print p, '--->', pkt[p_off-8:].replace('\x00', '.')
     data = data[4:] # 0x76 - offset from start for params
-    
+
     s1 = data.find('\x00\x00')
     hid = utf2ascii(data[:s1+1])
     data = data[s1+3:]
@@ -567,7 +567,7 @@ def send_ncq(s, vid, pid, subsys, spath):
     rev2    = 0x0
     #subsys  = 0x0
     #spath  = '\\\\Attila\RemInst\\Setup\\Italian\\IMAGES\\WINDOWS'
-    
+
     data = pack('<I', 0x2)                # u1
     data = data + pack('<I', 0x0)         # u2
     data = data + pack('<I', 0x12345678L) # mac1
@@ -577,7 +577,7 @@ def send_ncq(s, vid, pid, subsys, spath):
     data = data + pack('<I', 0x2)         # u5
     data = data + pack('<H', vid)
     data = data + pack('<H', pid)
-    data = data + chr(rev_u1) + chr(rev_u2) + chr(rev_u3) 
+    data = data + chr(rev_u1) + chr(rev_u2) + chr(rev_u3)
     data = data + chr(rev)
     data = data + pack('<I', rev2)
     data = data + pack('<I', subsys)
@@ -608,7 +608,7 @@ def decode_ncq(p, data):
 
     #print p, 'u5: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # always 0x2
-    
+
     vid = unpack('<H', data[:2])[0]
     print p, 'Vid: 0x%x' % vid
     data = data[2:]
@@ -621,7 +621,7 @@ def decode_ncq(p, data):
     print p, 'rev_u3 = 0x%x' % unpack('<B', data[2])
     print p, 'rev    = 0x%x' % unpack('<B', data[3])
     data = data[4:]
-    
+
     print p, 'rev2   = 0x%x' % unpack('<I', data[:4])
     data = data[4:]
 
@@ -661,15 +661,15 @@ def decode_req(p, data):
 
     ### end of fixed data
     hexdump(data)
-    
+
 def send_req(s, addr):
     reply = open('data1.req').read()
     reply = REQ + pack('<I', len(data))
-    s.sendto(reply, addr)    
+    s.sendto(reply, addr)
 
 def decode_rsp(p, data):
     print p, 'Decoding RSP:'
-    
+
     print p, 'u1: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x1
 
@@ -708,7 +708,7 @@ def decode_off(p, data):
 
     print p, 'u7: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # 0x3
-    
+
 def send_rsp(s, addr, data):
     data = open('data1.rsp').read()[8:]
     reply = RSP
@@ -717,7 +717,7 @@ def send_rsp(s, addr, data):
     print 'Sending RSP'
     decode_rsp('[S]', data)
     s.sendto(reply, addr)
-    
+
 def send_unr(s, addr):
     reply = UNR
     data = pack('<I', 0x1)
@@ -757,7 +757,7 @@ def daemonize(logfile):
     close(sys.stderr.fileno())
     sys.stderr = Log(open(logfile, 'a+'))
     chdir('/')
-    
+
 if __name__ == '__main__':
     ## Defaults
     daemon  = False
@@ -819,7 +819,7 @@ if __name__ == '__main__':
 
     s = socket(AF_INET, SOCK_DGRAM)
     s.bind((address, port))
-    
+
     print 'Binlserver started... pid %d' % getpid()
     while 1:
         addr, t, data = get_packet(s)
@@ -838,7 +838,7 @@ if __name__ == '__main__':
                 if filename.startswith('launch'):
                     send_file(s, addr, u1, BASEPATH, 'warning.osc')
                 else:
-                    send_file(s, addr, u1, BASEPATH, filename)                
+                    send_file(s, addr, u1, BASEPATH, filename)
         elif t == NEG:
             decode_ntlm('[C]', data)
             print 'NEG request, sending CHALLENGE'

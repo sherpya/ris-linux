@@ -80,7 +80,7 @@ def skip_inf(line):
     if key == 'class' and value not in classes: return True
     if key == 'classguid' and value not in class_guids: return True
     return False
-    
+
 def parse_line(sections, secname, lineno, line):
     equal = line.find('=')
     comma = line.find(',')
@@ -106,7 +106,7 @@ def parse_line(sections, secname, lineno, line):
 
         ### SkipList
         if key == '0':return True
-                
+
         if section.has_key(key):
             values = csv2list(value)
             ### SkipList
@@ -149,7 +149,7 @@ def parse_inf(filename):
     sections = {}
     section = None
     data = open(filename).read()
-    
+
     ## Cheap Unicode to ascii
     if data[:2] == BOM_LE or data[:2] == BOM_BE:
         data = utf_16_le_decode(data)[0]
@@ -165,7 +165,7 @@ def parse_inf(filename):
         line = line.strip()
         line = line.split(';', 1)[0]
         line = line.strip()
-        
+
         if len(line) < 1: continue # empty lines
 
         if line[0] == ';': continue # comment
@@ -214,7 +214,7 @@ def scan_inf(filename):
                 sec = sec.lower()
 
                 hid = hid.upper()
-                
+
                 if inf.has_key(sec):
                     mainsec = sec
                 else:
@@ -237,7 +237,7 @@ def scan_inf(filename):
                 tmp = item_lookup(inf[serv_sec], 'addservice')
                 service = tmp[0]
                 sec_service = tmp[2]
-                             
+
                 driver = None
                 if (type(inf[mainsec]) == type({})
                     and inf[mainsec].has_key('copyfiles')):
@@ -247,15 +247,15 @@ def scan_inf(filename):
 
                 if driver is None:
                     driver = inf[sec_service.lower()]['ServiceBinary'][0].split('\\').pop()
-                                
+
                 if dumpdev: print 'Driver', driver
 
                 try:
                     char = eval(inf[mainsec]['Characteristics'][0])
                 except:
                     char = 132
-                    
-                if dumpdev: print 'Characteristics', char        
+
+                if dumpdev: print 'Characteristics', char
                 try:
                     btype = int(inf[mainsec]['BusType'][0])
                 except:
@@ -263,12 +263,12 @@ def scan_inf(filename):
                         btype = bustype[hid.split('\\')[0]]
                     except:
                         btype = 0
-                        
+
                 if dumpdev: print 'BusType', btype
                 if dumpdev: print 'Service', service
                 if dumpdev: print '-'*78
 
-                
+
                 devices[hid] = { 'desc' : desc,
                                  'char' : str(char),
                                  'btype': str(btype),
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     for inffile in filelist:
         if inffile.split('/').pop() not in exclude:
             devlist.update(scan_inf(inffile))
-    
+
     print 'Compiled %d drivers' % len(devlist)
 
     fd = open('devlist.cache','w')

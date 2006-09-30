@@ -111,7 +111,7 @@ static void cleanup(int signum)
 #ifdef _WIN32
 static void stop_console_handler(void)
 {
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE) cleanup, FALSE); 
+    SetConsoleCtrlHandler((PHANDLER_ROUTINE) cleanup, FALSE);
 }
 #endif
 
@@ -259,7 +259,7 @@ int main(int argc, char *argv[])
     uint32_t type = 0, value = 0, res = NCR_OK;
     uint16_t vid = 0, pid = 0;
     size_t fromlen = 0, offset = 0, retval = 0;
-    
+
 #ifdef _WIN32
     WSADATA wsaData;
     SetConsoleCtrlHandler((PHANDLER_ROUTINE) cleanup, TRUE);
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
 
             value = SWAB32(sizeof(ris_params)); /* Parameters list length in chars */
             memcpy(&packet[offset], &value, sizeof(value));
-            offset += sizeof(value); 
+            offset += sizeof(value);
 
             offset += 0x4; /* Parameters list offset */
 
