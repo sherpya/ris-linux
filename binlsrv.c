@@ -31,7 +31,13 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifndef PORT
 #define PORT 4011
+#endif
+
+#ifndef NICFILE
+#define NICFILE "nics.txt"
+#endif
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -183,10 +189,10 @@ int find_drv(uint16_t cvid, uint16_t cpid, DRIVER *drv)
     char buffer[1024];
     int found = 0;
 
-    FILE *fd = fopen("nics.txt", "r");
+    FILE *fd = fopen(NICFILE, "r");
     if (!fd)
     {
-         printf("Problems opening nics.txt\n");
+         printf("Problems opening nic file\n");
          return 0;
     }
 
@@ -409,7 +415,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* The server never reach this point */
+    /* The server never reaches this point */
     closesocket(m_socket);
     WSACleanup();
     return 0;
