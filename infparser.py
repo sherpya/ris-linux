@@ -125,7 +125,7 @@ def parse_line(sections, secname, lineno, line):
                 ml = []
                 for m in mlist[1:]:
                     ml.append('.'.join([mf, m.strip().lower()]))
-                #mlist = [mf] + ml
+                mlist = [mf] + ml
             else:
                 mlist = [mf]
 
