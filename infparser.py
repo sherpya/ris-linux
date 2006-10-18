@@ -295,7 +295,7 @@ if __name__ == '__main__':
 
     print 'Compiled %d drivers' % len(devlist)
 
-    fd = open('devlist.cache','w')
+    fd = open('devlist.cache', 'w')
     dump(devlist, fd)
     fd.close()
     print 'generated devlist.cache'
