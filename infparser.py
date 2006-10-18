@@ -298,3 +298,23 @@ if __name__ == '__main__':
     fd = open('devlist.cache','w')
     dump(devlist, fd)
     fd.close()
+    print 'generated devlist.cache'
+
+    fd = open('nics.txt', 'w')
+    drvhash = {}
+    for nic in devlist.items():
+        entry = nic[0].split('&')
+        if len(entry) < 2: continue # just to be sure
+        if not entry[0].startswith('PCI'): continue # skip usb
+        vid = entry[0].split('VEN_').pop().lower()
+        pid = entry[1].split('DEV_').pop().lower()
+        key = (vid, pid)
+        line = '%4s %4s %s %s\n' % (vid, pid, nic[1]['drv'], nic[1]['svc'])
+        drvhash[key] = line
+
+    drvlist = drvhash.values()
+    drvlist.sort()
+    fd.writelines(drvlist)
+    fd.close()
+
+    print 'generated nics.txt'
