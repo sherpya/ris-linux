@@ -39,6 +39,13 @@
 #define NICFILE "nics.txt"
 #endif
 
+#ifndef __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN 1234
+#endif
+#ifndef __BIG_ENDIAN
+#define __BIG_ENDIAN    4321
+#endif
+
 #ifdef _WIN32
 #include <winsock2.h>
 #define __BYTE_ORDER __LITTLE_ENDIAN
@@ -50,6 +57,7 @@ typedef unsigned __int16 uint16_t;
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h> /* inet_ntoa */
 #include <errno.h>
 #include <inttypes.h>
@@ -58,6 +66,14 @@ typedef unsigned __int16 uint16_t;
 #define closesocket         close
 #define WSAGetLastError()   errno
 #define WSACleanup()
+#endif
+
+#ifndef __BYTE_ORDER
+#if defined(_BIG_ENDIAN)
+#define __BYTE_ORDER __BIG_ENDIAN
+#elif defined(_LITTLE_ENDIAN)
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#endif
 #endif
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -264,7 +280,7 @@ int main(int argc, char *argv[])
     char packet[1024];
     uint32_t type = 0, value = 0, res = NCR_OK;
     uint16_t vid = 0, pid = 0;
-    size_t fromlen = 0, offset = 0, retval = 0;
+    uint32_t fromlen = 0, offset = 0, retval = 0;
 
 #ifdef _WIN32
     WSADATA wsaData;
