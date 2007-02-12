@@ -1,6 +1,6 @@
 /*
  * Mini Binl Server
- * Copyright (c) 2005-2006 Gianluigi Tiesi <sherpya@netfarm.it>
+ * Copyright (c) 2005-2007 Gianluigi Tiesi <sherpya@netfarm.it>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    printf("Mini Binl Server - Copyright (c) 2005-2006 Gianluigi Tiesi\n");
+    printf("Mini Binl Server - Copyright (c) 2005-2007 Gianluigi Tiesi\n");
     printf("This program is free software\n");
     printf("Listening on port %d\n", PORT);
 
