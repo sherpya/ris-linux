@@ -3,7 +3,7 @@
 #
 # Boot Information Negotiation Layer - OpenSource Implementation
 #
-# Copyright (C) 2005-2006 Gianluigi Tiesi <sherpya@netfarm.it>
+# Copyright (C) 2005-2007 Gianluigi Tiesi <sherpya@netfarm.it>
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any later
@@ -19,18 +19,21 @@ from socket import socket, AF_INET, SOCK_DGRAM, getfqdn
 from codecs import utf_16_le_decode, utf_16_le_encode, ascii_encode
 from struct import unpack, pack
 from sys import argv, exit as sys_exit
+from signal import signal, SIGINT, SIGTERM
 from time import sleep, time
 from cPickle import load
-from os import chdir, getpid
+from os import chdir, getpid, unlink
 from getopt import getopt, error as getopt_error
 
-__version__ = '0.8'
-__usage__ = """Usage %s: [-h] [-d] [-l logfile] [-a address] [-p port] [devlist.cache]
+__version__ = '0.9'
+__usage__ = """Usage %s: [-h] [-d] [-l logfile] [-a address] [-p port]
+                    [--pid pidfile] [devlist.cache]
 -h, --help     : show this help
 -d, --daemon   : daemonize, unix only [false]
 -l, --logfile= : logfile when used in daemon mode [/var/log/binlsrv.log]
 -a, --address= : ip address to bind to [all interfaces]
 -p, --port=    : port to bind to [4011]
+    --pid=     : pid file to use instead of the default
 devlist.cache  : device list cache file [devlist.cache in current dir]
 """
 
@@ -184,6 +187,20 @@ class Log:
         self.f.write(s)
         self.f.flush()
 
+
+def shutdown(signum, frame):
+    global pidfile, s
+    try:
+        s.close()
+    except:
+        print 'Cannot shutdown the socket'
+    try:
+        unlink(pidfile)
+    except:
+        pass
+    print 'Shutdown done'
+    sys_exit(0)
+
 def dotted(data):
     res = ''
     for i in range(len(data)):
@@ -225,12 +242,12 @@ def ascii2utf(text):
     return utf_16_le_encode(text)[0]
 
 def get_packet(s):
+    global pidfile
     try:
         data, addr = s.recvfrom(1024)
     except KeyboardInterrupt:
         print 'Server terminated by user request'
-        s.close()
-        sys_exit(0)
+        shutdown(0, 0)
 
     pktype = data[:4]
     if DUMPING: open('/tmp/' + pktype[1:] + '.hex', 'w').write(data)
@@ -760,11 +777,13 @@ def daemonize(logfile):
 
 if __name__ == '__main__':
     ## Defaults
+    global pidfile, s
     daemon  = False
     logfile = '/var/log/binlsrv.log'
     address = ''
     port    = 4011
     devfile = 'devlist.cache'
+    pidfile = '/var/run/binlsrv.pid'
 
     ## Parse command line arguments.
     shortopts = 'hdl:a:p:'
@@ -800,6 +819,8 @@ if __name__ == '__main__':
                 port = int(arg)
             except:
                 port = -1
+        if opt in ('pid'):
+            pidfile = arg
 
     if (port <= 0) or (port >= 0xffff):
         print 'Port not in range 1-65534'
@@ -820,7 +841,19 @@ if __name__ == '__main__':
     s = socket(AF_INET, SOCK_DGRAM)
     s.bind((address, port))
 
-    print 'Binlserver started... pid %d' % getpid()
+    mypid = str(getpid())
+    print 'Binlserver started... pid', mypid
+    if daemon:
+        ## Install the sig int handler
+        signal(SIGINT, shutdown)
+        signal(SIGTERM, shutdown)
+        try:
+            fd = open(pidfile, 'w')
+            fd.write(mypid)
+            fd.close()
+        except:
+            print 'Cannot write pidfile', pidfile
+
     while 1:
         addr, t, data = get_packet(s)
         if t == FILEREQ:
