@@ -170,10 +170,10 @@ const char *type2str(uint32_t type)
     }
 }
 
-char get_string(FILE *fd, char *dest, size_t size)
+unsigned char get_string(FILE *fd, char *dest, size_t size)
 {
     int i = 0;
-    char c = 0;
+    unsigned char c = 0;
 
     while (i < size)
     {
@@ -187,14 +187,14 @@ char get_string(FILE *fd, char *dest, size_t size)
 
 static inline void skipspaces(FILE *fd)
 {
-    char c = 0;
+    unsigned char c = 0;
     while(!feof(fd) && !isspace(c))
         if(fread(&c, 1, sizeof(c), fd) != sizeof(c)) break;
 }
 
 static inline void eol(FILE *fd)
 {
-    char c = 0;
+    unsigned char c = 0;
     while(!feof(fd) && (c != '\n') && (c != '\r'))
         if(fread(&c, 1, sizeof(c), fd) != sizeof(c)) break;
 }
