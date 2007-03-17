@@ -141,7 +141,7 @@ UNR       = S+'UNR' # 8255 4e52
 myfqdn = getfqdn()
 myhostinfo = myfqdn.split('.', 1)
 mydomain = myhostinfo.pop()
-# workaround if hosts files is broken
+# workaround if hosts file is misconfigured
 try:
     myhostname = myhostinfo.pop()
 except:
@@ -422,10 +422,9 @@ def decode_ntlm(p, data):
 
 decode_aut = decode_ntlm
 
-## Only PCI supported for now
+## Only PCI Cards are supported for now
 def send_ncr(s, addr, vid, pid, subsys):
     global devlist
-
     #reply = open('vmware.hex').read()
     #decode_ncr('[VmWare]', reply[8:])
     #s.sendto(reply, addr)
@@ -587,8 +586,8 @@ def send_ncq(s, vid, pid, subsys, spath):
 
     data = pack('<I', 0x2)                # u1
     data = data + pack('<I', 0x0)         # u2
-    data = data + pack('<I', 0x12345678L) # mac1
-    data = data + pack('<I', 0x9abc)      # mac2
+    data = data + pack('<I', 0x12345678L) # mac1/2
+    data = data + pack('<I', 0x9abc)      # mac2/2
     data = data + pack('<I', 0x0)         # u3
     data = data + pack('<I', 0x0)         # u4
     data = data + pack('<I', 0x2)         # u5
@@ -615,7 +614,7 @@ def decode_ncq(p, data):
     print p, 'Mac address', ':'.join(['%02x' % x for x in mac])
     data = data[6:]
 
-    data = data[2:] # Padding ?
+    data = data[2:] # Padding
 
     #print p, 'u3: 0x%x' % unpack('<I', data[:4])
     data = data[4:] # always 0x0
@@ -785,7 +784,7 @@ if __name__ == '__main__':
     devfile = 'devlist.cache'
     pidfile = '/var/run/binlsrv.pid'
 
-    ## Parse command line arguments.
+    ## Parse command line arguments
     shortopts = 'hdl:a:p:'
     longopts = [ 'help', 'daemon', 'logfile=', 'address=', 'port=' ]
 
@@ -844,7 +843,7 @@ if __name__ == '__main__':
     mypid = str(getpid())
     print 'Binlserver started... pid', mypid
     if daemon:
-        ## Install the sig int handler
+        ## Install signal int handlers
         signal(SIGINT, shutdown)
         signal(SIGTERM, shutdown)
         try:
@@ -867,7 +866,7 @@ if __name__ == '__main__':
                 params = parse_arguments(params)
                 print 'Client requested:', filename
                 if len(params): print 'Arguments:', repr(params)
-                ## TODO there are also other actions
+                ## TODO: there are also other actions
                 if filename.startswith('launch'):
                     send_file(s, addr, u1, BASEPATH, 'warning.osc')
                 else:
