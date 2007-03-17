@@ -24,13 +24,15 @@ import re
 __version__ = '0.1'
 
 __usage__ = """%s: [-l loader] [-p port] [-v] [-r response] inputfile
-input file can be:
-startrom - change OsLoader [-l] : exactly 5 chars - only if not already changed
-OsLoader - change port [-p] : 16 bit integer
-         - display current port [-v] - no modification are written
-           change response file [-r] : exactly 9 chars - only if not already changed
-!!! Warning it will work in-place, the original file is modified !!!
-"""
+startrom:
+ - changes SetupLoader       [-l] : exactly 5 chars - only if not yet modified
+SetupLDR:
+ - changes the udp port      [-p] : 16 bit integer
+ - displays the current port [-v] : no modification are made
+ - change response file      [-r] : exactly 9 chars - only if not yet modified
+
+!!! Warning modifications are made in-place, so the file is modified !!!"""
+
 arglist = 'l:p:vr:'
 ppattern = re.compile(r'\x6a\x04\x68(..)\x00\x00\xff\x35', re.DOTALL)
 allowed_chars = digits + letters + '.'
@@ -90,7 +92,7 @@ if __name__ == '__main__':
         pat = re.compile(r'NTLDR', re.IGNORECASE)
         out = pat.sub(loader, data)
         if out == data:
-            print 'No string was replaced, make sure that the string is not already changed'
+            print 'No string was replaced, make sure that the string was not already changed'
             sys_exit(-1)
         open(filename, 'wb').write(out)
         print 'Loader succesfully changed to', loader
@@ -98,7 +100,7 @@ if __name__ == '__main__':
     else:
         ### Assume OsLoader
         if loader is not None:
-            print 'Invalid operation for OsLoader file'
+            print 'Invalid operation for SetupLDR file'
             sys_exit(-1)
 
         if display is not None and (port is not None or response is not None):
@@ -148,6 +150,6 @@ if __name__ == '__main__':
                 print 'Port location not found, bad file?'
                 sys_exit(-1)
             port = unpack('!H', res.group(0)[3:5])[0]
-            print 'OsLoader is currently using port', port
+            print 'SetupLDR is currently using port', port
 
         sys_exit(0)
