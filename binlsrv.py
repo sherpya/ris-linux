@@ -141,6 +141,8 @@ UNR       = S+'UNR' # 8255 4e52
 myfqdn = getfqdn()
 myhostinfo = myfqdn.split('.', 1)
 mydomain = myhostinfo.pop()
+mynbdomain = 'RIS' # FIXME
+
 # workaround if hosts file is misconfigured
 try:
     myhostname = myhostinfo.pop()
@@ -148,15 +150,15 @@ except:
     myhostname = mydomain
 
 server_data = {
-    'domain': mydomain.upper(),
-    'name'  : myhostname.upper(),
-    'dnsdm' : mydomain,
-    'fqdn'  : myfqdn
+    'nbname'     : myhostname.upper(),
+    'nbdomain'   : mynbdomain,
+    'dnshostname': myhostname,
+    'dnsdomain'  : mydomain
     }
 
 tr_table = {
-    '%SERVERNAME%'        : server_data['name'],
-    '%SERVERDOMAIN%'      : server_data['domain'],
+    '%SERVERNAME%'        : server_data['nbname'],
+    '%SERVERDOMAIN%'      : server_data['nbdomain'],
     '%MACHINENAME%'       : 'client',
     '%NTLMV2Enabled%'     : '0',
     '%ServerUTCFileTime%' : str(int(time()))
@@ -167,12 +169,15 @@ devlist = None
 count = 0
 
 regtype = [ 'REG_NONE', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ' ]
-codes   = [ 'NULL', 'NAME', 'DOMAIN', 'FQDN', 'DNSDM', 'DNSDM2' ]
+codes   = [ 'None', 'NetBiosName', 'NetBiosDomain', 'DNSHostName', 'DNSDomain', 'DNSDomain2' ]
 
 NULL = chr(0x0)
 
-AUTH_U1   = 'N\x11\x155F\r\xa6\xeb' # Challenge
-AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
+#AUTH_U1   = 'N\x11\x155F\r\xa6\xeb' # Challenge
+#AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
+
+#AUTH_U1 = '\xA8\x00\xA8\x00\x4C\x00\x00\x00\x05\x02\xCE\x0E\x00\x00\x00\x0F'
+#AUTH_U1 = '\xA8\x00\xA8\x00\x4C\x00\x00\x00'
 
 NTLM      = 'NTLMSSP\x00'
 
@@ -279,32 +284,37 @@ def send_file(s, addr, u1, basepath, filename):
     s.sendto(reply, addr)
 
 def send_challenge(s, addr, sd):
-    domain = ascii2utf(sd['domain'])
-    name   = ascii2utf(sd['name'])
-    dnsdm  = ascii2utf(sd['dnsdm'])
-    fqdn   = ascii2utf(sd['fqdn'])
+    nbname      = ascii2utf(sd['nbname'])
+    nbdomain    = ascii2utf(sd['nbdomain'])
+    dnshostname = ascii2utf(sd['dnshostname'])
+    dnsdomain   = ascii2utf(sd['dnsdomain'])
 
-    ed = pack('<H', codes.index('DOMAIN')) + pack('<H', len(domain)) + domain + \
-         pack('<H', codes.index('NAME'))   + pack('<H', len(name))   + name   + \
-         pack('<H', codes.index('DNSDM'))  + pack('<H', len(dnsdm))  + dnsdm  + \
-         pack('<H', codes.index('FQDN'))   + pack('<H', len(fqdn))   + fqdn   + \
-         pack('<H', codes.index('DNSDM2')) + pack('<H', len(dnsdm))  + dnsdm  + \
-         (NULL *4)
+    payload = pack('<H', codes.index('NetBiosDomain')) + pack('<H', len(nbdomain))    + nbdomain    + \
+              pack('<H', codes.index('NetBiosName'))   + pack('<H', len(nbname))      + nbname      + \
+              pack('<H', codes.index('DNSDomain'))     + pack('<H', len(dnsdomain))   + dnsdomain   + \
+              pack('<H', codes.index('DNSHostName'))   + pack('<H', len(dnshostname)) + dnshostname + \
+              pack('<H', codes.index('DNSDomain2'))    + pack('<H', len(dnsdomain))   + dnsdomain   + \
+              (NULL * 4)
 
+
+    data = NTLM + pack('<I', NTLM_CHALLENGE)
+
+    challenge = '\x89\xA5\x41\xF4\x84\xD7\x21\xC8'
+    auth_u1   = '\x05\x02\xCE\x0E\x00\x00\x00\x0F'
+    
     off = 0x38
     #flags = 0xa2898215L
     flags = 0x00018206L
-    data = NTLM + pack('<I', NTLM_CHALLENGE)
-    data = data + encodehdr(domain, off)
-    off = off + len(domain)
+
+    data = data + encodehdr(nbdomain, off)
+    off  = off + len(nbdomain)
+
     data = data + pack('<I', flags)
-    #data = data + AUTH_U1 + (NULL*8) # AUTH_U1 should be the challenge string
-    #data = data + 'CHALLENG' + (NULL*8)
-    data = data + 'CHALLEN1' + (NULL*8)
-    data = data + encodehdr(ed, off)
-    #data = data + AUTH_U2
-    data = data + 'CHALLEN2'
-    data = data + domain + ed
+    
+    data = data + challenge + (NULL*8)
+    data = data + encodehdr(payload, off)
+    data = data + auth_u1
+    data = data + nbdomain + payload
 
     reply = CHL + pack('<I', len(data)) + data
     decode_ntlm('[S]', data)
@@ -391,15 +401,10 @@ def decode_ntlm(p, data):
     elif t == NTLM_AUTHENTICATE:
         print p, 'Packet type is NTLM_AUTHENTICATE'
 
-        print p, 'LANMAN challenge response', dumphdr(data, pkt)
-
-        print p, 'u1 = 0x%x' % (unpack('<I', data[:4]))
-        print p, 'u2 = 0x%x' % (unpack('<I', data[4:8]))
-
+        print p, 'LANMAN challenge response', repr(decodehdr(data, pkt))
         data = data[8:]
 
-        print p, 'NT challenge response', dumphdr(data, pkt)
-        print p, 'NT challenge response', repr(utf2ascii(decodehdr(data, pkt)[:52]))
+        print p, 'NT challenge response', repr(decodehdr(data, pkt))
         data = data[8:]
 
         print p, 'Domain to auth', decodehdr(data, pkt)
