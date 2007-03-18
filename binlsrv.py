@@ -172,14 +172,7 @@ regtype = [ 'REG_NONE', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'R
 codes   = [ 'None', 'NetBiosName', 'NetBiosDomain', 'DNSHostName', 'DNSDomain', 'DNSDomain2' ]
 
 NULL = chr(0x0)
-
-#AUTH_U1   = 'N\x11\x155F\r\xa6\xeb' # Challenge
-#AUTH_U2   = '\x05\x02\xce\x0e\x00\x00\x00\x0f'
-
-#AUTH_U1 = '\xA8\x00\xA8\x00\x4C\x00\x00\x00\x05\x02\xCE\x0E\x00\x00\x00\x0F'
-#AUTH_U1 = '\xA8\x00\xA8\x00\x4C\x00\x00\x00'
-
-NTLM      = 'NTLMSSP\x00'
+NTLM = 'NTLMSSP\x00'
 
 ### Logger class wrapper
 class Log:
@@ -191,7 +184,6 @@ class Log:
     def write(self, s):
         self.f.write(s)
         self.f.flush()
-
 
 def shutdown(signum, frame):
     global pidfile, s
@@ -296,12 +288,11 @@ def send_challenge(s, addr, sd):
               pack('<H', codes.index('DNSDomain2'))    + pack('<H', len(dnsdomain))   + dnsdomain   + \
               (NULL * 4)
 
-
     data = NTLM + pack('<I', NTLM_CHALLENGE)
 
     challenge = '\x89\xA5\x41\xF4\x84\xD7\x21\xC8'
     auth_u1   = '\x05\x02\xCE\x0E\x00\x00\x00\x0F'
-    
+
     off = 0x38
     #flags = 0xa2898215L
     flags = 0x00018206L
@@ -310,7 +301,7 @@ def send_challenge(s, addr, sd):
     off  = off + len(nbdomain)
 
     data = data + pack('<I', flags)
-    
+
     data = data + challenge + (NULL*8)
     data = data + encodehdr(payload, off)
     data = data + auth_u1
