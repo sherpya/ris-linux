@@ -350,7 +350,7 @@ def send_challenge(s, addr, sd):
 
     off = 0x38
     #flags = 0xa2898215L
-    flags = 0x00018206L
+    flags = 0x00010206L # NTLM v1
 
     data = data + encodehdr(nbdomain, off)
     off  = off + len(nbdomain)
