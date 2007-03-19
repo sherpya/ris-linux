@@ -26,7 +26,16 @@ from cPickle import load
 from os import chdir, getpid, unlink
 from getopt import getopt, error as getopt_error
 
-__version__ = '0.9'
+## NTML Auth Code from: NTLM Authorization Proxy Server
+## Copyright 2001 Dmitry A. Rozmanov <dima@xenon.spb.ru>
+crypto = True
+try:
+    from Crypto.Hash import MD4
+    from Crypto.Cipher import DES
+except:
+    crypto = False
+
+__version__ = '1.0'
 __usage__ = """Usage %s: [-h] [-d] [-l logfile] [-a address] [-p port]
                     [--pid pidfile] [devlist.cache]
 -h, --help     : show this help
@@ -165,6 +174,10 @@ tr_table = {
     '%ServerUTCFileTime%' : str(int(time()))
     }
 
+users = {
+    'Administrator': 'secret'
+    }
+
 devlist = None
 
 count = 0
@@ -273,11 +286,50 @@ def send_file(s, addr, u1, basepath, filename):
     reply = reply + l + u1 + data + NULL
     s.sendto(reply, addr)
 
+
+def key56_to_key64(strkey):
+    key_56 = []
+    for i in strkey[:7]: key_56.append(ord(i))
+    key = []
+    for i in range(8): key.append(0)
+
+    key[0] = key_56[0];
+    key[1] = ((key_56[0] << 7) & 0xff) | (key_56[1] >> 1)
+    key[2] = ((key_56[1] << 6) & 0xff) | (key_56[2] >> 2)
+    key[3] = ((key_56[2] << 5) & 0xff) | (key_56[3] >> 3)
+    key[4] = ((key_56[3] << 4) & 0xff) | (key_56[4] >> 4)
+    key[5] = ((key_56[4] << 3) & 0xff) | (key_56[5] >> 5)
+    key[6] = ((key_56[5] << 2) & 0xff) | (key_56[6] >> 6)
+    key[7] =  (key_56[6] << 1) & 0xff
+
+    for i in range(len(key)):
+        for k in range(7):
+            bit = 0
+            t = key[i] >> k
+            bit = (t ^ bit) & 0x1
+        key[i] = (key[i] & 0xfe) | bit
+
+    k = ''
+    for i in range(len(key)):
+        k = k + chr(key[i])
+    return k
+
+def do_des(key, chl):
+    key = key56_to_key64(key)
+    obj = DES.new(key)
+    return obj.encrypt(chl)
+
+def nt_response(password, challenge):
+    md4 = MD4.new()
+    md4.update(password.encode('utf-16le'))
+    pw = md4.digest() + (NULL * 5)
+    return do_des(pw[0:7], challenge) + do_des(pw[7:14], challenge) + do_des(pw[14:21], challenge)
+
 def gen_challenge(addr):
-    c = md5.new()
+    c = md5()
     c.update(addr[0])
     c.update(str(addr[1]))
-    return c.digest()[:16]
+    return c.digest()[:8]
 
 def send_challenge(s, addr, sd):
     nbname      = sd['nbname'].encode('utf-16le')
@@ -315,8 +367,18 @@ def send_challenge(s, addr, sd):
     s.sendto(reply, addr)
 
 def send_res(s, addr, data):
-    result = AUTH_OK
-    #result = SEC_E_LOGON_DENIED
+    res = decodehdr(data[20:], data)
+    domain = decodehdr(data[28:], data)
+    user = decodehdr(data[36:], data)
+
+    result = SEC_E_LOGON_DENIED
+    if crypto \
+       and (domain == server_data['nbdomain']) \
+       and users.has_key(user) \
+       and (res == nt_response(users[user], gen_challenge(addr))):
+        print '[S]', 'User Authenticated'
+        result = AUTH_OK
+
     reply = RES
     data = pack('<I', result)
     l = pack('<I', len(data))
@@ -459,7 +521,7 @@ def send_ncr(s, addr, vid, pid, subsys):
     unidata = dev_uni.encode('utf-16le')    + (NULL * 2) + \
               dev['drv'].encode('utf-16le') + (NULL * 2) + \
               dev['svc'].encode('utf-16le') + (NULL * 2)
-              
+
     drv_off = 0x24    + (len(dev_uni) + 1)    * 2
     svc_off = drv_off + (len(dev['drv']) + 1) * 2
     p_off   = svc_off + (len(dev['svc']) + 1) * 2
@@ -876,7 +938,7 @@ if __name__ == '__main__':
             send_challenge(s, addr, server_data)
             sleep(1)
         elif t == AUT:
-            print 'AUT request, sending ok'
+            print 'AUT request'
             decode_ntlm('[C]', data)
             send_res(s, addr, data)
             sleep(1)
