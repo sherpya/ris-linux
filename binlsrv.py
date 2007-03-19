@@ -21,6 +21,7 @@ from struct import unpack, pack
 from sys import argv, exit as sys_exit
 from signal import signal, SIGINT, SIGTERM
 from time import sleep, time
+from md5 import md5
 from cPickle import load
 from os import chdir, getpid, unlink
 from getopt import getopt, error as getopt_error
@@ -235,9 +236,6 @@ def hexdump(data):
 def utf2ascii(text):
     return ascii_encode(utf_16_le_decode(text, 'ignore')[0], 'ignore')[0]
 
-def ascii2utf(text):
-    return utf_16_le_encode(text)[0]
-
 def get_packet(s):
     global pidfile
     try:
@@ -275,11 +273,17 @@ def send_file(s, addr, u1, basepath, filename):
     reply = reply + l + u1 + data + NULL
     s.sendto(reply, addr)
 
+def gen_challenge(addr):
+    c = md5.new()
+    c.update(addr[0])
+    c.update(str(addr[1]))
+    return c.digest()[:16]
+
 def send_challenge(s, addr, sd):
-    nbname      = ascii2utf(sd['nbname'])
-    nbdomain    = ascii2utf(sd['nbdomain'])
-    dnshostname = ascii2utf(sd['dnshostname'])
-    dnsdomain   = ascii2utf(sd['dnsdomain'])
+    nbname      = sd['nbname'].encode('utf-16le')
+    nbdomain    = sd['nbdomain'].encode('utf-16le')
+    dnshostname = sd['dnshostname'].encode('utf-16le')
+    dnsdomain   = sd['dnsdomain'].encode('utf-16le')
 
     payload = pack('<H', codes.index('NetBiosDomain')) + pack('<H', len(nbdomain))    + nbdomain    + \
               pack('<H', codes.index('NetBiosName'))   + pack('<H', len(nbname))      + nbname      + \
@@ -289,8 +293,7 @@ def send_challenge(s, addr, sd):
               (NULL * 4)
 
     data = NTLM + pack('<I', NTLM_CHALLENGE)
-
-    challenge = '\x89\xA5\x41\xF4\x84\xD7\x21\xC8'
+    challenge = gen_challenge(addr)
     auth_u1   = '\x05\x02\xCE\x0E\x00\x00\x00\x0F'
 
     off = 0x38
@@ -453,13 +456,13 @@ def send_ncr(s, addr, vid, pid, subsys):
 
     print 'Found', dev_uni, 'in', dev['inf']
 
-    unidata = ascii2utf(dev_uni)    + (NULL *2) + \
-              ascii2utf(dev['drv']) + (NULL *2) + \
-              ascii2utf(dev['svc']) + (NULL *2)
-
-    drv_off = 0x24    + (len(dev_uni)+1)    * 2
-    svc_off = drv_off + (len(dev['drv'])+1) * 2
-    p_off   = svc_off + (len(dev['svc'])+1) * 2
+    unidata = dev_uni.encode('utf-16le')    + (NULL * 2) + \
+              dev['drv'].encode('utf-16le') + (NULL * 2) + \
+              dev['svc'].encode('utf-16le') + (NULL * 2)
+              
+    drv_off = 0x24    + (len(dev_uni) + 1)    * 2
+    svc_off = drv_off + (len(dev['drv']) + 1) * 2
+    p_off   = svc_off + (len(dev['svc']) + 1) * 2
 
     parms = 'Description\x002\x00'     + dev['desc']  + '\x00' + \
             'Characteristics\x001\x00' + dev['char']  + '\x00' + \
