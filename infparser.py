@@ -20,8 +20,9 @@ from sys import argv, exit as sys_exit
 from os.path import isfile
 from glob import glob
 from cPickle import dump
+from traceback import format_exc
 
-__version__ = '0.9'
+__version__ = '1.0'
 
 ### Compatibility with python 2.1
 if getattr(__builtins__, 'True', None) is None:
@@ -246,6 +247,10 @@ def scan_inf(filename):
                         driver = inf[sec_files][0]
 
                 if driver is None:
+                    if not inf.has_key(sec_service.lower()):
+                        print 'Warning missing ServiceBinary for %s' % sec_service
+                        print 'Please report including this file: %s\n' % filename
+                        continue
                     driver = inf[sec_service.lower()]['ServiceBinary'][0].split('\\').pop()
 
                 if dumpdev: print 'Driver', driver
@@ -291,7 +296,16 @@ if __name__ == '__main__':
     devlist = {}
     for inffile in filelist:
         if inffile.split('/').pop() not in exclude:
-            devlist.update(scan_inf(inffile))
+            try:
+                devlist.update(scan_inf(inffile))
+            except:
+                print '--'
+                print 'Error parsing %s' % inffile
+                print 'Please report sending the inf file and this message:'
+                print '---- CUT HERE ----'
+                print '%s Version %s\n' % (argv[0], __version__)
+                print format_exc()
+                print '---- CUT HERE ----'
 
     print 'Compiled %d drivers' % len(devlist)
 

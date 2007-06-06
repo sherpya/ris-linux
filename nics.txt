@@ -1,2 +1,0 @@
-1022 2000 pcntpci5.sys PCnet
-1186 1300 RTL8139.sys rtl8139
