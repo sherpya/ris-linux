@@ -480,14 +480,28 @@ def decode_bootp(p, data):
     print p, 'Relay Agent IP 0x%08x' % ragent
 
     data = data[4:]
+    hl = max(hl, 8)
     mac  = [ord(x) for x in data[:hl]]
     print p, 'Mac address', ':'.join(['%02x' % x for x in mac])
 
-    data = data[hl:] ## FIXME: Error handling
+    data = data[hl:]
+    hostname = data[:48].replace('\x00', '').strip()
+    print p, 'Hostname:', hostname
 
-    ## Server hostname
-    ## Boot file name
-    ## Magic Cookie
+    data = data[48:]
+    bootfile = data[:152].replace('\x00', '').strip() # 152?
+    print p, 'Boot file:', bootfile
+
+    data = data[152:]
+    magic = data[:4]
+    if magic != MAGIC_COOKIE:
+        print p, 'Magic cookie is not on the right place'
+        return
+
+    data = data[4:]
+    if opts != data:
+        print p, 'Options not in the right place'
+        return
 
     while len(opts) > 1: # FIXME: there is always at least 1 byte padded?
         opt = ord(opts[0])
