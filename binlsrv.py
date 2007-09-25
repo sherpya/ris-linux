@@ -187,6 +187,7 @@ bootp = {
      60: ['s', 'Vendor'],
      93: ['h', 'Client Arch'],
      97: ['h', 'Client GUID'],
+    250: ['h', 'Private'],  # 01020006ff
     252: ['s', 'Boot Configuration Data File']
     }
 
@@ -432,6 +433,7 @@ def bootp_dump(p, opt, value):
 
 def decode_bootp(p, data):
     print p, 'WDS Packet: Vista network client'
+    print p, '-' * 78
 
     if len(data) < (2 + 0xf0):
         print p, 'Short packet'
@@ -1072,6 +1074,8 @@ if __name__ == '__main__':
             #send_rsp(s, addr, data)
         elif t == MAGIC_COOKIE:
              decode_bootp('[C]', data)
+             #reply = open('reply', 'rb').read()
+             #s.sendto(reply, addr)
         else:
             print 'Unknown Packet: ', repr(data)
             if DUMPING: open('/tmp/unknown.hex','w').write(data)
