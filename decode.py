@@ -16,6 +16,7 @@
 # ======================================================================
 
 from sys import argv, exit as sys_exit
+from binlsrv import C, S, MAGIC_COOKIE, hexdump
 
 if __name__ == '__main__':
     if len(argv) < 2:
@@ -24,12 +25,22 @@ if __name__ == '__main__':
 
     for f in argv[1:]:
         data = open(f).read()
-        t = data[1:4].lower()
-        data = data[8:]
+
+        if (data[0] == C) or (data[0] == S):
+            t = data[1:4].lower()
+            data = data[8:]
+        elif data[0xec:0xec+4] == MAGIC_COOKIE:
+            t = 'bootp'
+        else:
+            print 'Invalid Packet'
+            hexdump(data)
+            continue
+
         try:
             decode = getattr(__import__('binlsrv', globals(), locals(), []), 'decode_' + t)
         except:
             print 'Type', repr(t), 'not supported'
+            hexdump(data)
             continue
 
         print '\nDumping file:', f
