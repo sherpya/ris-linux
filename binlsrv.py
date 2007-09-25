@@ -124,6 +124,8 @@ NTLM_ANY          = 0
 AUTH_OK            = 0x00000000L
 SEC_E_LOGON_DENIED = 0x8009030cL
 
+MAGIC_COOKIE = '\x63\x82\x53\x63'
+
 MAGIC = 'KGS!@#$%'
 C = '\x81'
 S = '\x82'
@@ -176,6 +178,16 @@ tr_table = {
 
 users = {
     'Administrator': 'secret'
+    }
+
+bootp = {
+     53: ['h', 'DHCP Request'],
+     54: ['h', 'Server Identifier'],
+     55: ['h', 'Paramter Request list'],
+     60: ['s', 'Vendor'],
+     93: ['h', 'Client Arch'],
+     97: ['h', 'Client GUID'],
+    252: ['s', 'Boot Configuration Data File']
     }
 
 devlist = None
@@ -257,13 +269,22 @@ def get_packet(s):
         print 'Server terminated by user request'
         shutdown(0, 0)
 
-    pktype = data[:4]
-    if DUMPING: open('/tmp/' + pktype[1:] + '.hex', 'w').write(data)
-    data = data[4:]
-    l = unpack('<I', data[:4])[0]
-    print 'Recv %s len = %d' % (pktype[1:], l)
-    data = data[4:]
-    return addr, pktype, data
+    # Binl packet
+    if (data[0] == C) or (data[0] == S):
+        pktype = data[:4]
+        data = data[4:]
+        l = unpack('<I', data[:4])[0]
+        print 'Recv BINL %s len = %d' % (str(pktype[1:]), l)
+        data = data[4:]
+        return addr, pktype, data
+
+    ## BOOTP WDS Packet
+    if data[0xec:0xf0] == MAGIC_COOKIE:
+        return addr, MAGIC_COOKIE, data
+
+    ## Unknown
+    return addr, None, data
+
 
 def translate(text):
     for tr in tr_table.keys():
@@ -396,6 +417,88 @@ def decodehdr(data, pkt):
 
 def encodehdr(value, off):
     return pack('<HHI', len(value), len(value), off)
+
+
+def format_hex(data):
+    res = ''
+    for i in range(len(data)):
+        res += '%02x' % ord(data[i])
+    return res
+
+def bootp_dump(p, opt, value):
+    t, name = bootp.get(opt, ['h', 'Unknown opt %d' % opt])
+    if t == 'h': value = format_hex(value)
+    print p, 'DHCP option %s value: %s' % (name, value)
+
+def decode_bootp(p, data):
+    print p, 'WDS Packet: Vista network client'
+
+    if len(data) < (2 + 0xf0):
+        print p, 'Short packet'
+        return
+
+    opts = data[0xf0:]
+    mt, ht = ord(data[0]), ord(data[1]) # ht == 1 -> Ethernet
+    if mt == 1:
+        print p, 'Boot Request'
+    elif mt == 2:
+        print p, 'Boot Reply'
+    else:
+        print p, 'Unsupported BootP Type', mt
+        hexdump(data)
+
+    data = data[2:]
+    hl, hops = ord(data[0]), ord(data[1])
+
+    data = data[2:]
+    tid = unpack('>I', data[:4])[0]
+    print p, 'Transaction ID 0x%08x' % tid
+
+    data = data[4:]
+    sec = unpack('>H', data[:2])[0]
+    print p, 'Seconds elapsed %d' % sec
+
+    data = data[2:]
+    bpf = unpack('>H', data[:2])[0]
+    print p, 'BootP flags = 0x%04x' % bpf
+
+    ## FIXME: Duplicate code
+    data = data[2:]
+    clientip = unpack('>I', data[:4])[0]
+    print p, 'Client IP 0x%08x' % clientip
+
+    data = data[4:]
+    yourip = unpack('>I', data[:4])[0]
+    print p, 'Your IP 0x%08x' % yourip
+
+    data = data[4:]
+    next = unpack('>I', data[:4])[0]
+    print p, 'Next Server IP 0x%08x' % next
+
+    data = data[4:]
+    ragent = unpack('>I', data[:4])[0]
+    print p, 'Relay Agent IP 0x%08x' % ragent
+
+    data = data[4:]
+    mac  = [ord(x) for x in data[:hl]]
+    print p, 'Mac address', ':'.join(['%02x' % x for x in mac])
+
+    data = data[hl:] ## FIXME: Error handling
+
+    ## Server hostname
+    ## Boot file name
+    ## Magic Cookie
+
+    while len(opts) > 1: # FIXME: there is always at least 1 byte padded?
+        opt = ord(opts[0])
+        if opt == 0xff: break # End packet
+        length = ord(opts[1])
+        opts = opts[2:]
+        if len(opts) < length: break # Bad packet
+        value = opts[:length]
+        opts = opts[length:]
+
+        bootp_dump(p, opt, value)
 
 def decode_ntlm(p, data):
     global count
@@ -953,7 +1056,8 @@ if __name__ == '__main__':
             if DUMPING: open('/tmp/req.hex','w').write(REQ+pack('<I',len(data))+data)
             send_unr(s, addr)
             #send_rsp(s, addr, data)
+        elif t == MAGIC_COOKIE:
+             decode_bootp('[C]', data)
         else:
-            print 'Unknown Request: ', t[1:]
-            print 'Data: ', repr(data)
+            print 'Unknown Packet: ', repr(data)
             if DUMPING: open('/tmp/unknown.hex','w').write(data)
