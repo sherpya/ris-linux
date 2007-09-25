@@ -2,6 +2,7 @@
 
 from sys import stdin, argv, exit as sys_exit
 
+# WireShark Copy whole packet bytes as Hex Stream
 
 if __name__ == '__main__':
 
