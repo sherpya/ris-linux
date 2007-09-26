@@ -16,7 +16,7 @@
 # ======================================================================
 
 from sys import argv, exit as sys_exit
-from binlsrv import C, S, MAGIC_COOKIE, hexdump
+from binlsrv import C, S, MAGIC_COOKIE, MAGIC_OFFSET, hexdump
 
 if __name__ == '__main__':
     if len(argv) < 2:
@@ -29,11 +29,11 @@ if __name__ == '__main__':
         if (data[0] == C) or (data[0] == S):
             t = data[1:4].lower()
             data = data[8:]
-        elif data[0xec:0xec+4] == MAGIC_COOKIE:
+        elif data[MAGIC_OFFSET:MAGIC_OFFSET+4] == MAGIC_COOKIE:
             t = 'bootp'
         else:
             print 'Invalid Packet'
-            hexdump(data)
+            hexdump(data[0xee:])
             continue
 
         try:
