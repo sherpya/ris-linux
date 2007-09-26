@@ -558,7 +558,7 @@ def send_bootp(s, addr):
     p = p + chr(252) + chr(len('boot/bcd')) + 'boot/bcd'
     p = p + chr(0xff)
     decode_bootp('[S]', p)
-    open('out', 'w').write(p)
+    open('out', 'wb').write(p)
     #s.sendto(p, addr)
 
 def decode_ntlm(p, data):
@@ -567,12 +567,12 @@ def decode_ntlm(p, data):
 
     if DUMPING:
         filename = '/tmp/' + p[1:-1] + '.log'
-        open(filename, 'w').write(AUT + pack('<I', len(data)) + data)
+        open(filename, 'wb').write(AUT + pack('<I', len(data)) + data)
 
     data = data[8:]
 
     hexdump(data)
-    if DUMPING: open('/tmp/' + str(count) + '.hex', 'w').write(data)
+    if DUMPING: open('/tmp/' + str(count) + '.hex', 'wb').write(data)
     count =+ 1
 
     t = unpack('<I', data[:4])[0]
@@ -650,7 +650,7 @@ decode_aut = decode_ntlm
 ## Only PCI Cards are supported for now
 def send_ncr(s, addr, vid, pid, subsys):
     global devlist
-    #reply = open('vmware.hex').read()
+    #reply = open('vmware.hex', 'rb').read()
     #decode_ncr('[VmWare]', reply[8:])
     #s.sendto(reply, addr)
     #return
@@ -904,7 +904,7 @@ def decode_req(p, data):
     hexdump(data)
 
 def send_req(s, addr):
-    reply = open('data1.req').read()
+    reply = open('data1.req', 'rb').read()
     reply = REQ + pack('<I', len(data))
     s.sendto(reply, addr)
 
@@ -951,7 +951,7 @@ def decode_off(p, data):
     data = data[4:] # 0x3
 
 def send_rsp(s, addr, data):
-    data = open('data1.rsp').read()[8:]
+    data = open('data1.rsp', 'rb').read()[8:]
     reply = RSP
     l = pack('<I', len(data))
     reply = reply + l + data
@@ -1054,7 +1054,7 @@ if __name__ == '__main__':
         devfile = args[0]
 
     try:
-        devlist = load(open(devfile))
+        devlist = load(open(devfile, 'rb'))
     except:
         print 'Could not load %s as cache, build it with infparser.py' % devfile
         sys_exit(-1)
@@ -1108,13 +1108,13 @@ if __name__ == '__main__':
             sleep(1)
         elif t == NCQ:
             print 'NCQ Driver request'
-            if DUMPING: open('/tmp/ncq.hex','w').write(data)
+            if DUMPING: open('/tmp/ncq.hex','wb').write(data)
             vid, pid, subsys = decode_ncq('[R]', data)
             send_ncr(s, addr, vid, pid, subsys)
         elif t == REQ:
             print 'REQ request, sending Session Expired (RSP not implemented)'
             decode_req('[C]', data)
-            if DUMPING: open('/tmp/req.hex','w').write(REQ+pack('<I',len(data))+data)
+            if DUMPING: open('/tmp/req.hex','wb').write(REQ+pack('<I',len(data))+data)
             send_unr(s, addr)
             #send_rsp(s, addr, data)
         elif t == MAGIC_COOKIE:
@@ -1122,4 +1122,4 @@ if __name__ == '__main__':
              send_bootp(s, addr)
         else:
             print 'Unknown Packet: ', repr(data)
-            if DUMPING: open('/tmp/unknown.hex','w').write(data)
+            if DUMPING: open('/tmp/unknown.hex','wb').write(data)
