@@ -24,6 +24,6 @@ if __name__ == '__main__':
         sys_exit()
 
     for f in argv[1:]:
-        data = open(f).read()
+        data = open(f, 'rb').read()
         print '\nDumping file:', f
         hexdump(data)

@@ -25,7 +25,7 @@ if __name__ == '__main__':
         print 'Usage: %s devlist.cache' % argv[0]
         sys_exit(-1)
 
-    data = load(open(argv[1]))
+    data = load(open(argv[1], 'rb'))
     keys = data.keys()
     keys.sort()
     for k in keys:

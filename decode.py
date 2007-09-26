@@ -24,7 +24,7 @@ if __name__ == '__main__':
         sys_exit()
 
     for f in argv[1:]:
-        data = open(f).read()
+        data = open(f, 'rb').read()
 
         if (data[0] == C) or (data[0] == S):
             t = data[1:4].lower()
