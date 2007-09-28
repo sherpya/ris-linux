@@ -15,7 +15,7 @@
 # for more details.
 # ======================================================================
 
-from socket import socket, AF_INET, SOCK_DGRAM, getfqdn
+from socket import socket, AF_INET, SOCK_DGRAM, getfqdn, gethostbyname
 from codecs import utf_16_le_decode, utf_16_le_encode, ascii_encode
 from struct import unpack, pack
 from sys import argv, exit as sys_exit
@@ -125,7 +125,7 @@ AUTH_OK            = 0x00000000L
 SEC_E_LOGON_DENIED = 0x8009030cL
 
 MAGIC_COOKIE = '\x63\x82\x53\x63'
-MAGIC_OFFSET = 0xe2
+MAGIC_OFFSET = 0xec
 
 MAGIC = 'KGS!@#$%'
 C = '\x81'
@@ -183,10 +183,12 @@ users = {
 
 bootp = {
      53: ['h', 'DHCP Request'],
-     54: ['h', 'Server Identifier'],
+     54: ['c', 'Server Identifier'],
      55: ['h', 'Paramter Request list'],
+     57: ['h', 'Max DHCP message size'],
      60: ['s', 'Vendor'],
      93: ['h', 'Client Arch'],
+     94: ['h', 'Client Network Device Interface'],
      97: ['h', 'Client GUID'],
     250: ['h', 'Private'],  # 01020006ff
     252: ['s', 'Boot Configuration Data File']
@@ -440,17 +442,21 @@ def format_hex(data):
 def bootp_dump(p, opt, value):
     t, name = bootp.get(opt, ['h', 'Unknown opt %d' % opt])
     if t == 'h': value = format_hex(value)
+    if t == 'c': value = byte2ip(value)
     print p, 'DHCP option %s value: %s' % (name, value)
 
 def decode_bootp(p, data):
-    print p, 'WDS Packet: Vista network client'
     print p, '-' * 78
+    print p, 'WDS Packet: Vista network client'
 
-    if len(data) < (2 + 0xe6):
+    info = {}
+
+    packet = data[:]
+    if len(data) < (2 + 0xe6): ## FIXME
         print p, 'Short packet'
-        return
+        return info
 
-    opts = data[MAGIC_OFFSET+8:]
+    opts = data[MAGIC_OFFSET+4:]
     mt, ht = ord(data[0]), ord(data[1]) # ht == 1 -> Ethernet
     data = data[2:]
 
@@ -467,6 +473,7 @@ def decode_bootp(p, data):
     data = data[2:]
 
     tid = unpack('>I', data[:4])[0]
+    info['tid'] = tid
     print p, 'Transaction ID 0x%08x' % tid
     data = data[4:]
 
@@ -494,10 +501,11 @@ def decode_bootp(p, data):
     print p, 'Relay Agent IP', byte2ip(ragent)
     data = data[4:]
 
-    hl = min(hl, 8)
+    hl = min(hl, 16)
     mac  = [ord(x) for x in data[:hl]]
     print p, 'Mac address', ':'.join(['%02x' % x for x in mac])
-    data = data[hl:]
+    info['mac'] = data[:16]
+    data = data[16:]
 
     hostname = data[:64].replace(NULL, '').strip()
     print p, 'Hostname:', hostname
@@ -509,15 +517,14 @@ def decode_bootp(p, data):
 
     magic = data[:4]
     if magic != MAGIC_COOKIE:
-        print p, 'Magic cookie is not on the right place', repr(magic), repr(data[:16])
-        return
+        print p, 'Magic cookie is not on the right place', repr(magic)
+        #open('bad_cookie.hex', 'wb').write(packet)
+        return info
     data = data[4:]
-
-    data = data[4:] # Padding
 
     if opts != data:
         print p, 'Options not in the right place', repr(opts[:16]), repr(data[:16])
-        return
+        return info
 
     while len(opts) > 1: # FIXME: there is always at least 1 byte padded?
         opt = ord(opts[0])
@@ -527,22 +534,25 @@ def decode_bootp(p, data):
         if len(opts) < length: break # Bad packet
         value = opts[:length]
         opts = opts[length:]
-
+        ## FIXME
+        if opt == 97: info['guid'] = value
         bootp_dump(p, opt, value)
+    return info
 
-def send_bootp(s, addr):
+def send_bootp(s, addr, info):
+    hostip = gethostbyname(myhostname)
     p = chr(0x2)                       # Boot Reply
     p = p + chr(0x1)                   # hw type: ethernet
     p = p + chr(0x6)                   # hw addr len
     p = p + chr(0x0)                   # hops
-    p = p + pack('>I', 0x2a03184c)     # TID
+    p = p + pack('>I', info['tid'])    # TID
     p = p + pack('>H', 4)              # seconds
     p = p + pack('>H', 0)              # flags 0 = unicast
-    p = p + ip2byte('192.128.129.122') # client ip
+    p = p + ip2byte(addr[0])           # client ip
     p = p + ip2byte('0.0.0.0')         # your ip
-    p = p + ip2byte('0.0.0.0')         # next server
+    p = p + ip2byte(hostip)            # next server
     p = p + ip2byte('0.0.0.0')         # relay agent ip
-    p = p + '\xff' * 6                 # client mac addr
+    p = p + info['mac']                # client mac addr
 
     hostname = myhostname + (NULL * (64 - len(myhostname)))
     p = p + hostname                   # hostname
@@ -552,14 +562,16 @@ def send_bootp(s, addr):
     p = p + bf                         # Boot File
 
     p = p + MAGIC_COOKIE
-    p = p + NULL * 4
 
     p = p + '\x35\x01\x05'             # DHCP ACK
-    p = p + chr(252) + chr(len('boot/bcd')) + 'boot/bcd'
+    p = p + chr(54) + chr(4) + ip2byte(hostip) # Server ID
+    p = p + chr(97) + chr(len(info['guid'])) + info['guid']
+    p = p + chr(60) + chr(9) + 'PXEClient'
+    p = p + chr(252) + chr(len('boot\\bcd')) + 'boot\\bcd'
     p = p + chr(0xff)
     decode_bootp('[S]', p)
-    open('out', 'wb').write(p)
-    #s.sendto(p, addr)
+    #open('out', 'wb').write(p)
+    if s != -1: s.sendto(p, addr)
 
 def decode_ntlm(p, data):
     global count
@@ -1118,8 +1130,8 @@ if __name__ == '__main__':
             send_unr(s, addr)
             #send_rsp(s, addr, data)
         elif t == MAGIC_COOKIE:
-             decode_bootp('[C]', data)
-             send_bootp(s, addr)
+             info = decode_bootp('[C]', data)
+             send_bootp(s, addr, info)
         else:
             print 'Unknown Packet: ', repr(data)
             if DUMPING: open('/tmp/unknown.hex','wb').write(data)
