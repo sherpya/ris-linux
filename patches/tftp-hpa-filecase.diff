@@ -16,18 +16,18 @@
 * License along with this software; if not, write to the
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
---- tftp-hpa-0.40.orig/tftpd/tftpd.c	2004-09-15 00:38:46.000000000 +0200
-+++ tftp-hpa-0.40/tftpd/tftpd.c	2006-02-17 23:41:31.000000000 +0100
-@@ -61,6 +61,7 @@
+diff -Nur tftp-hpa-0.48.orig/tftpd/tftpd.c tftp-hpa-0.48/tftpd/tftpd.c
+--- tftp-hpa-0.48.orig/tftpd/tftpd.c	2007-01-31 00:51:05.000000000 +0100
++++ tftp-hpa-0.48/tftpd/tftpd.c	2007-12-09 06:02:35.374845896 +0100
+@@ -59,6 +59,7 @@
  #include <pwd.h>
  #include <limits.h>
  #include <syslog.h>
 +#include <dirent.h>
  
- #include "tftpsubs.h"
+ #include "common/tftpsubs.h"
  #include "recvfrom.h"
-@@ -713,6 +714,9 @@
+@@ -724,6 +725,9 @@
  void	tftp_sendfile(struct formats *, struct tftphdr *, int);
  void	tftp_recvfile(struct formats *, struct tftphdr *, int);
  
@@ -37,7 +37,7 @@ diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
  struct formats {
    const char *f_mode;
    char	*(*f_rewrite)(char *, int, const char **);
-@@ -1049,6 +1053,64 @@
+@@ -1059,6 +1063,64 @@
  }
  #endif
  
@@ -102,7 +102,7 @@ diff -ur tftp-hpa-0.40.orig/tftpd/tftpd.c tftp-hpa-0.40/tftpd/tftpd.c
  FILE *file;
  /*
   * Validate file access.  Since we
-@@ -1075,6 +1137,8 @@
+@@ -1085,6 +1147,8 @@
    tsize_ok = 0;
    *errmsg = NULL;
    
