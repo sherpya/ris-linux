@@ -222,10 +222,12 @@ def scan_inf(filename):
                     mainsec = fuzzy_lookup(inf.keys(), sec)
                     if mainsec is None: continue
 
-                if inf.has_key(mainsec + '.services'):
+                if mainsec.endswith('.services') and inf.has_key(mainsec):
+                    serv_sec = mainsec
+                elif inf.has_key(mainsec + '.services'):
                     serv_sec = mainsec + '.services'
                 else:
-                    serv_sec = fuzzy_lookup(inf.keys(), mainsec, '.service')
+                    serv_sec = fuzzy_lookup(inf.keys(), mainsec.split('.')[0], '.services')
                     if serv_sec is None:
                         if debug > 0: print 'Service section for %s not found, skipping...' % mainsec
                         continue
@@ -236,6 +238,9 @@ def scan_inf(filename):
                 if dumpdev: print 'hid:', hid
 
                 tmp = item_lookup(inf[serv_sec], 'addservice')
+                if tmp is None:
+                    if debug > 0: print 'Warning: addservice not found %s' % serv_sec
+                    continue
                 service = tmp[0]
                 sec_service = tmp[2]
 
